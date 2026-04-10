@@ -54,8 +54,18 @@ async function init() {
 	/** @type {Map<string, HTMLButtonElement>} */
 	const trackElements = new Map()
 
-	/** Cache of parsed metadata per file ID. */
-	/** @type {Map<string, import('music-metadata').ICommonTagsResult>} */
+	/**
+	 * Cache of parsed metadata per file ID. Stores both the raw common tags and
+	 * the pre-computed artwork data URLs.
+	 *
+	 * @type {Map<
+	 * 	string,
+	 * 	{
+	 * 		common: import('music-metadata').ICommonTagsResult
+	 * 		artwork: MediaImage[]
+	 * 	}
+	 * >}
+	 */
 	const metadataCache = new Map()
 	// ── helpers ────────────────────────────────────────────────────────────
 
@@ -178,28 +188,9 @@ async function init() {
 
 		const file = (realtime.getState()?.files ?? []).find((f) => f.id === id)
 
-		if ('mediaSession' in navigator) {
-			if (!metadataCache.has(id)) {
-				const { common } = await parseBlob(blob)
-				metadataCache.set(id, common)
-			}
-			const common = metadataCache.get(id)
-			const artwork = await Promise.all(
-				(common?.picture ?? []).map(async (pic) => {
-					const dataUrl = await blobToDataURL(
-						new Blob([pic.data], { type: pic.format })
-					)
-					return { src: dataUrl, sizes: '512x512', type: pic.format }
-				})
-			)
-			navigator.mediaSession.metadata = new MediaMetadata({
-				title: common?.title || (file?.name ?? id),
-				artist: common?.artist || 'Unknown',
-				album: common?.album || 'Unknown',
-				artwork,
-			})
-		}
-
+		// Start playback immediately — iOS requires audio.play() to be called
+		// synchronously within the user-gesture handler. Any await before play()
+		// causes iOS to reject the call and the media session never activates.
 		currentObjectUrl = URL.createObjectURL(blob)
 		audio.src = currentObjectUrl
 		audio.play()
@@ -210,6 +201,37 @@ async function init() {
 		playBtn.disabled = false
 		updatePlayButton()
 		highlightTrack(index)
+
+		// Update the media session metadata asynchronously after playback has
+		// started. iOS will pick up metadata set while audio is already playing.
+		if ('mediaSession' in navigator) {
+			if (!metadataCache.has(id)) {
+				const { common } = await parseBlob(blob)
+				const artwork = await Promise.all(
+					(common?.picture ?? []).map(async (pic) => {
+						const dataUrl = await blobToDataURL(
+							new Blob([pic.data], { type: pic.format })
+						)
+						return /** @type {MediaImage} */ ({
+							src: dataUrl,
+							sizes: '512x512',
+							type: pic.format,
+						})
+					})
+				)
+				metadataCache.set(id, { common, artwork })
+			}
+			const { common, artwork } =
+				/** @type {NonNullable<ReturnType<typeof metadataCache.get>>} */ (
+					metadataCache.get(id)
+				)
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: common?.title || (file?.name ?? id),
+				artist: common?.artist || 'Unknown',
+				album: common?.album || 'Unknown',
+				artwork,
+			})
+		}
 	}
 
 	function togglePlay() {
