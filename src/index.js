@@ -237,8 +237,8 @@ async function init() {
 				)
 			navigator.mediaSession.metadata = new MediaMetadata({
 				title: common?.title || (file?.name ?? id),
-				artist: common?.artist || 'Unknown',
-				album: common?.album || 'Unknown',
+				artist: common?.artist,
+				album: common?.album,
 				artwork,
 			})
 		}
@@ -297,32 +297,29 @@ async function init() {
 
 	// ── Media Session action handlers ──────────────────────────────────────
 
-	if ('audioSession' in navigator) {
-		navigator.audioSession.type = 'play'
-	}
+	// https://stackoverflow.com/a/78001443
+	audio.addEventListener('playing', () => {
+		if ('mediaSession' in navigator) {
+			navigator.mediaSession.setActionHandler('play', () => {
+				audio.play()
+			})
+			navigator.mediaSession.setActionHandler('pause', () => {
+				audio.pause()
+			})
 
-	if ('mediaSession' in navigator) {
-		navigator.mediaSession.setActionHandler('play', () => {
-			audio.play()
-		})
-		navigator.mediaSession.setActionHandler('pause', () => {
-			audio.pause()
-		})
-
-		// Only register previoustrack/nexttrack — never register seekbackward,
-		// seekforward, or seekto so that iOS shows next/prev track buttons
-		// instead of the default skip-10-seconds controls.
-		navigator.mediaSession.setActionHandler('previoustrack', () => {
-			if (trackIds.length === 0) return
-			playTrack(
-				currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1
-			)
-		})
-		navigator.mediaSession.setActionHandler('nexttrack', () => {
-			if (trackIds.length === 0) return
-			playTrack((currentIndex + 1) % trackIds.length)
-		})
-	}
+			// Only register previoustrack/nexttrack — never register seekbackward,
+			// seekforward, or seekto so that iOS shows next/prev track buttons
+			// instead of the default skip-10-seconds controls.
+			navigator.mediaSession.setActionHandler('previoustrack', () => {
+				if (trackIds.length === 0) return
+				playTrack(currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1)
+			})
+			navigator.mediaSession.setActionHandler('nexttrack', () => {
+				if (trackIds.length === 0) return
+				playTrack((currentIndex + 1) % trackIds.length)
+			})
+		}
+	})
 
 	// ── controls ───────────────────────────────────────────────────────────
 
@@ -424,7 +421,8 @@ async function init() {
 	}
 
 	/**
-	 * Tries to find a peer that has the given chunk. Returns null if none found.
+	 * Tries to find a peer that has the given chunk. Returns null if none
+	 * found.
 	 *
 	 * @param {import('./lib/validate-payload').FileMeta} file
 	 * @param {number} chunkId
