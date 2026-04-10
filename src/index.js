@@ -141,7 +141,6 @@ async function init() {
 		playlist.appendChild(item)
 		trackIds.push(file.id)
 		trackElements.set(file.id, item)
-		updateMediaSessionHandlers()
 	}
 
 	/**
@@ -202,7 +201,6 @@ async function init() {
 		playBtn.disabled = false
 		updatePlayButton()
 		highlightTrack(index)
-		updateMediaSessionHandlers()
 
 		// Update the media session metadata asynchronously after playback has
 		// started. iOS will pick up metadata set while audio is already playing.
@@ -253,16 +251,8 @@ async function init() {
 	// ── audio events ───────────────────────────────────────────────────────
 
 	audio.addEventListener('ended', () => {
-		const nextIndex = currentIndex + 1
-		if (nextIndex < trackIds.length) {
-			playTrack(nextIndex)
-		} else {
-			isPlaying = false
-			updatePlayButton()
-			updateMediaSessionHandlers()
-			if ('mediaSession' in navigator) {
-				navigator.mediaSession.playbackState = 'none'
-			}
+		if (trackIds.length > 0) {
+			playTrack((currentIndex + 1) % trackIds.length)
 		}
 	})
 
@@ -312,39 +302,32 @@ async function init() {
 		// buttons instead of the default seek-backward/seek-forward controls.
 		try {
 			navigator.mediaSession.setActionHandler('seekbackward', null)
-		} catch (_e) {
+		} catch {
 			// Ignore – browser does not support this action
 		}
 		try {
 			navigator.mediaSession.setActionHandler('seekforward', null)
-		} catch (_e) {
+		} catch {
 			// Ignore – browser does not support this action
 		}
 		try {
 			navigator.mediaSession.setActionHandler('seekto', null)
-		} catch (_e) {
+		} catch {
 			// Ignore – browser does not support this action
 		}
 	}
 
-	/**
-	 * Refreshes the previoustrack/nexttrack Media Session handlers based on
-	 * the current position in the playlist. Setting a handler to null signals
-	 * to the OS that the action is unavailable, which hides or disables the
-	 * corresponding system control button on iOS.
-	 */
-	function updateMediaSessionHandlers() {
-		if (!('mediaSession' in navigator)) return
-		navigator.mediaSession.setActionHandler(
-			'previoustrack',
-			currentIndex > 0 ? () => playTrack(currentIndex - 1) : null
-		)
-		navigator.mediaSession.setActionHandler(
-			'nexttrack',
-			currentIndex < trackIds.length - 1
-				? () => playTrack(currentIndex + 1)
-				: null
-		)
+	if ('mediaSession' in navigator) {
+		navigator.mediaSession.setActionHandler('previoustrack', () => {
+			if (trackIds.length === 0) return
+			playTrack(
+				currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1
+			)
+		})
+		navigator.mediaSession.setActionHandler('nexttrack', () => {
+			if (trackIds.length === 0) return
+			playTrack((currentIndex + 1) % trackIds.length)
+		})
 	}
 
 	// ── controls ───────────────────────────────────────────────────────────
@@ -352,11 +335,13 @@ async function init() {
 	playBtn.addEventListener('click', togglePlay)
 
 	prevBtn.addEventListener('click', () => {
-		if (currentIndex > 0) playTrack(currentIndex - 1)
+		if (trackIds.length === 0) return
+		playTrack(currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1)
 	})
 
 	nextBtn.addEventListener('click', () => {
-		if (currentIndex < trackIds.length - 1) playTrack(currentIndex + 1)
+		if (trackIds.length === 0) return
+		playTrack((currentIndex + 1) % trackIds.length)
 	})
 
 	progressBar.addEventListener('input', () => {
