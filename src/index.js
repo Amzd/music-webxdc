@@ -47,8 +47,6 @@ async function init() {
 	let isPlaying = false
 	/** @type {string | null} */
 	let currentObjectUrl = null
-	/** @type {string[]} */
-	let currentArtworkUrls = []
 
 	const audio = new Audio()
 
@@ -60,6 +58,16 @@ async function init() {
 	/** @type {Map<string, import('music-metadata').ICommonTagsResult>} */
 	const metadataCache = new Map()
 	// ── helpers ────────────────────────────────────────────────────────────
+
+	/** @param {Blob} blob @returns {Promise<string>} */
+	function blobToDataURL(blob) {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader()
+			reader.onload = () => resolve(/** @type {string} */ (reader.result))
+			reader.onerror = reject
+			reader.readAsDataURL(blob)
+		})
+	}
 
 	const ICON_PLAY =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>'
@@ -163,24 +171,12 @@ async function init() {
 			currentObjectUrl = null
 		}
 
-		for (const url of currentArtworkUrls) URL.revokeObjectURL(url)
-		currentArtworkUrls = []
-
 		const blob = new Blob(
 			chunks.map((c) => c.blob),
 			{ type: 'audio/mpeg' }
 		)
-		currentObjectUrl = URL.createObjectURL(blob)
-		audio.src = currentObjectUrl
-		audio.play()
 
 		const file = (realtime.getState()?.files ?? []).find((f) => f.id === id)
-		currentIndex = index
-		isPlaying = true
-		nowPlaying.textContent = file?.name ?? id
-		playBtn.disabled = false
-		updatePlayButton()
-		highlightTrack(index)
 
 		if ('mediaSession' in navigator) {
 			if (!metadataCache.has(id)) {
@@ -188,13 +184,14 @@ async function init() {
 				metadataCache.set(id, common)
 			}
 			const common = metadataCache.get(id)
-			const artwork = (common?.picture ?? []).map((pic) => {
-				const url = URL.createObjectURL(
-					new Blob([pic.data], { type: pic.format })
-				)
-				currentArtworkUrls.push(url)
-				return { src: url, type: pic.format }
-			})
+			const artwork = await Promise.all(
+				(common?.picture ?? []).map(async (pic) => {
+					const dataUrl = await blobToDataURL(
+						new Blob([pic.data], { type: pic.format })
+					)
+					return { src: dataUrl, sizes: '512x512', type: pic.format }
+				})
+			)
 			navigator.mediaSession.metadata = new MediaMetadata({
 				title: common?.title || (file?.name ?? id),
 				artist: common?.artist || 'Unknown',
@@ -202,6 +199,17 @@ async function init() {
 				artwork,
 			})
 		}
+
+		currentObjectUrl = URL.createObjectURL(blob)
+		audio.src = currentObjectUrl
+		audio.play()
+
+		currentIndex = index
+		isPlaying = true
+		nowPlaying.textContent = file?.name ?? id
+		playBtn.disabled = false
+		updatePlayButton()
+		highlightTrack(index)
 	}
 
 	function togglePlay() {
