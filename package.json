@@ -58,6 +58,7 @@
 	},
 	"dependencies": {
 		"@webxdc/realtime": "^0.2.2",
-		"dexie": "^4.4.2"
+		"dexie": "^4.4.2",
+		"music-metadata": "^11.12.3"
 	}
 }
