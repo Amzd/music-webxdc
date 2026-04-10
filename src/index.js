@@ -348,6 +348,7 @@ async function init() {
 		if (!isSeeking) return
 		isSeeking = false
 		if (trackIds.length == 0) return
+		audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
 		if (audio.currentTime >= audio.duration) {
 			playTrack((currentIndex + 1) % trackIds.length)
 		}
@@ -356,11 +357,15 @@ async function init() {
 	document.addEventListener('pointerup', onSeekEnd)
 	document.addEventListener('pointercancel', onSeekEnd)
 
-	progressBar.addEventListener('input', () => {
-		if (!isFinite(audio.duration)) return
+	const seek = throttleWithTrailing(() => {
 		audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
 		if (wasPlayingWhenStartedSeeking && audio.paused && progressBar.value < 100)
 			audio.play()
+	}, 300)
+	progressBar.addEventListener('input', () => {
+		if (!isSeeking) return
+		if (!isFinite(audio.duration)) return
+		seek()
 	})
 
 	// ── upload ─────────────────────────────────────────────────────────────
@@ -632,4 +637,35 @@ async function init() {
 	window.addEventListener('beforeunload', () => realtime.disconnect())
 	refreshPlaylist(allFiles)
 	setTimeout(syncChunks, 100)
+}
+
+function throttleWithTrailing(fn, delay) {
+	let lastCall = 0
+	let timeout = null
+	let lastArgs = null
+
+	return function (...args) {
+		const now = performance.now()
+		lastArgs = args
+
+		const remaining = delay - (now - lastCall)
+
+		if (remaining <= 0) {
+			// Run immediately
+			if (timeout) {
+				clearTimeout(timeout)
+				timeout = null
+			}
+
+			lastCall = now
+			fn(...args)
+		} else if (!timeout) {
+			// Schedule trailing call
+			timeout = setTimeout(() => {
+				lastCall = performance.now()
+				timeout = null
+				fn(...lastArgs)
+			}, remaining)
+		}
+	}
 }
