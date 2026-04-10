@@ -13,33 +13,33 @@ Some commonly used scripts:
 
 - Install deps (usually when initially cloning the repo):
 
-    ```sh
-    pnpm install
-    ```
+  ```sh
+  pnpm install
+  ```
 
 - Perform some code checks:
 
-    ```sh
-    pnpm run check
-    ```
+  ```sh
+  pnpm run check
+  ```
 
 - Start the dev server:
 
-    ```sh
-    pnpm run dev
-    ```
+  ```sh
+  pnpm run dev
+  ```
 
 - Start the Webxdc emulator (must have the dev server running already):
 
-    ```sh
-    pnpm run webxdc:emulator
-    ```
+  ```sh
+  pnpm run webxdc:emulator
+  ```
 
 - Build the application for distribution:
 
-    ```sh
-    pnpm run build
-    ```
+  ```sh
+  pnpm run build
+  ```
 
 ## License
 
