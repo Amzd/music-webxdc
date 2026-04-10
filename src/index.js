@@ -46,6 +46,18 @@ async function init() {
     const durationEl = /** @type {HTMLElement} */ (
         document.getElementById('duration')
     )
+    const renameOverlay = /** @type {HTMLElement} */ (
+        document.getElementById('rename-overlay')
+    )
+    const renameInput = /** @type {HTMLInputElement} */ (
+        document.getElementById('rename-input')
+    )
+    const renameOk = /** @type {HTMLButtonElement} */ (
+        document.getElementById('rename-ok')
+    )
+    const renameCancel = /** @type {HTMLButtonElement} */ (
+        document.getElementById('rename-cancel')
+    )
 
     /** @type {string[]} File IDs in playlist order. */
     let trackIds = []
@@ -90,6 +102,55 @@ async function init() {
 
     applyPlaylistName(playlistName)
 
+    /**
+     * Show the custom rename dialog and resolve with the new name (trimmed),
+     * or null if the user cancelled.
+     *
+     * @returns {Promise<string | null>}
+     */
+    function showRenamePrompt() {
+        return new Promise((resolve) => {
+            renameInput.value = playlistName
+            renameOverlay.classList.add('open')
+            renameInput.focus()
+            renameInput.select()
+
+            /** @param {string | null} value */
+            function close(value) {
+                renameOverlay.classList.remove('open')
+                renameOk.removeEventListener('click', onOk)
+                renameCancel.removeEventListener('click', onCancel)
+                renameOverlay.removeEventListener('click', onOverlayClick)
+                renameInput.removeEventListener('keydown', onKeydown)
+                resolve(value)
+            }
+
+            function onOk() {
+                close(renameInput.value.trim() || null)
+            }
+
+            function onCancel() {
+                close(null)
+            }
+
+            /** @param {MouseEvent} e */
+            function onOverlayClick(e) {
+                if (e.target === renameOverlay) close(null)
+            }
+
+            /** @param {KeyboardEvent} e */
+            function onKeydown(e) {
+                if (e.key === 'Enter') onOk()
+                else if (e.key === 'Escape') close(null)
+            }
+
+            renameOk.addEventListener('click', onOk)
+            renameCancel.addEventListener('click', onCancel)
+            renameOverlay.addEventListener('click', onOverlayClick)
+            renameInput.addEventListener('keydown', onKeydown)
+        })
+    }
+
     // ── helpers ────────────────────────────────────────────────────────────
 
     /** @param {Blob} blob @returns {Promise<string>} */
@@ -104,13 +165,12 @@ async function init() {
 
     /**
      * Pushes current playback position into the shared realtime state so peers
-     * can see what is playing. Publishes null when sync is disabled so peers
-     * know this device is listening solo.
+     * can see what is playing. Publishes null when sync is disabled so peers know
+     * this device is listening solo.
      */
     function broadcastPlayback() {
         const state = realtime.getState() ?? { files: [], nowPlaying: null }
-        const fileId =
-            currentIndex >= 0 ? (trackIds[currentIndex] ?? null) : null
+        const fileId = currentIndex >= 0 ? (trackIds[currentIndex] ?? null) : null
         realtime.setState({
             ...state,
             nowPlaying:
@@ -562,9 +622,7 @@ async function init() {
             // instead of the default skip-10-seconds controls.
             navigator.mediaSession.setActionHandler('previoustrack', () => {
                 if (trackIds.length === 0) return
-                playTrack(
-                    currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1
-                )
+                playTrack(currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1)
             })
             navigator.mediaSession.setActionHandler('nexttrack', () => {
                 if (trackIds.length === 0) return
@@ -603,9 +661,9 @@ async function init() {
 
     prevBtn.addEventListener('click', () => {
         if (trackIds.length === 0) return
-        playTrack(
-            currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1
-        ).then(broadcastPlayback)
+        playTrack(currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1).then(
+            broadcastPlayback
+        )
     })
 
     nextBtn.addEventListener('click', () => {
@@ -625,9 +683,7 @@ async function init() {
         if (trackIds.length == 0) return
         audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
         if (audio.currentTime >= audio.duration) {
-            playTrack((currentIndex + 1) % trackIds.length).then(
-                broadcastPlayback
-            )
+            playTrack((currentIndex + 1) % trackIds.length).then(broadcastPlayback)
         } else {
             broadcastPlayback()
         }
@@ -637,11 +693,7 @@ async function init() {
 
     const seek = throttleWithTrailing(() => {
         audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
-        if (
-            wasPlayingWhenStartedSeeking &&
-            audio.paused &&
-            progressBar.value < 100
-        )
+        if (wasPlayingWhenStartedSeeking && audio.paused && progressBar.value < 100)
             audio.play()
     }, 300)
     progressBar.addEventListener('input', () => {
@@ -652,9 +704,9 @@ async function init() {
 
     // ── upload ─────────────────────────────────────────────────────────────
 
-    titleEl.addEventListener('click', () => {
-        const raw = prompt('Playlist name:', playlistName)
-        const newName = raw?.trim()
+
+    titleEl.addEventListener('click', async () => {
+        const newName = await showRenamePrompt()
         if (!newName || newName === playlistName || newName.length > 100) return
         applyPlaylistName(newName)
         const state = realtime.getState() ?? { files: [], nowPlaying: null }
@@ -667,8 +719,7 @@ async function init() {
     fileInput.addEventListener('change', async () => {
         if (!fileInput.files) return
         for (const file of Array.from(fileInput.files)) {
-            if (!file.type.includes('audio') && !file.name.endsWith('.mp3'))
-                continue
+            if (!file.type.includes('audio') && !file.name.endsWith('.mp3')) continue
             await sendFile(file)
         }
         fileInput.value = ''
@@ -682,11 +733,7 @@ async function init() {
      */
     async function sendFile(file) {
         const lastModified = file.lastModified || Date.now()
-
-        const currentState = realtime.getState() ?? {
-            files: [],
-            nowPlaying: null,
-        }
+        const currentState = realtime.getState() ?? { files: [], nowPlaying: null }
         const existing = currentState.files.find((f) => f.name === file.name)
         const id = existing ? existing.id : crypto.randomUUID()
 
@@ -709,11 +756,7 @@ async function init() {
         for (let i = 0; i < chunkCount; i++) {
             const start = i * CHUNK_SIZE
             const end = Math.min(start + CHUNK_SIZE, file.size)
-            await db.chunks.add({
-                file: id,
-                id: i,
-                blob: file.slice(start, end),
-            })
+            await db.chunks.add({ file: id, id: i, blob: file.slice(start, end) })
         }
 
         const updatedFiles = existing
@@ -757,8 +800,7 @@ async function init() {
     }
 
     /**
-     * Tries to find a peer that has the given chunk. Returns null if none
-     * found.
+     * Tries to find a peer that has the given chunk. Returns null if none found.
      *
      * @param {import('./lib/validate-payload').FileMeta} file
      * @param {number} chunkId
@@ -952,10 +994,8 @@ async function init() {
                 ) {
                     currentRequest = null
                 }
-                const state = realtime.getState() ?? {
-                    files: [],
-                    nowPlaying: null,
-                }
+
+                const state = realtime.getState() ?? { files: [], nowPlaying: null }
                 realtime.setState({ ...state, files })
                 refreshPlaylist(files)
             }

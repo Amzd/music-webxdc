@@ -72,6 +72,87 @@
                 opacity: 0.85;
             }
 
+            /* ── rename modal ── */
+
+            #rename-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.6);
+                z-index: 200;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #rename-overlay.open {
+                display: flex;
+            }
+
+            #rename-dialog {
+                background: var(--surface2);
+                border-radius: 12px;
+                padding: 20px;
+                width: min(320px, calc(100vw - 32px));
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            #rename-dialog label {
+                font-size: 0.95rem;
+                font-weight: 600;
+            }
+
+            #rename-input {
+                background: var(--surface);
+                border: 1px solid #444;
+                border-radius: 8px;
+                color: var(--text);
+                font-size: 0.95rem;
+                padding: 10px 12px;
+                width: 100%;
+                outline: none;
+            }
+
+            #rename-input:focus {
+                border-color: var(--accent);
+            }
+
+            #rename-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+            }
+
+            #rename-cancel {
+                background: none;
+                border: 1px solid #555;
+                border-radius: 8px;
+                color: var(--text);
+                padding: 8px 16px;
+                font-size: 0.85rem;
+                cursor: pointer;
+            }
+
+            #rename-cancel:hover {
+                background: rgba(255, 255, 255, 0.06);
+            }
+
+            #rename-ok {
+                background: var(--accent);
+                border: none;
+                border-radius: 8px;
+                color: #000;
+                font-weight: 600;
+                padding: 8px 16px;
+                font-size: 0.85rem;
+                cursor: pointer;
+            }
+
+            #rename-ok:hover {
+                opacity: 0.85;
+            }
+
             /* ── playlist ── */
 
             #playlist {
@@ -288,29 +369,17 @@
                     aria-pressed="false"
                 ></button>
                 <button id="prev-btn" type="button" aria-label="Previous">
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        aria-hidden="true"
-                    >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
                     </svg>
                 </button>
                 <button id="play-btn" type="button" disabled aria-label="Play">
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        aria-hidden="true"
-                    >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <path d="M8 5v14l11-7z" />
                     </svg>
                 </button>
                 <button id="next-btn" type="button" aria-label="Next">
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        aria-hidden="true"
-                    >
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
                     </svg>
                 </button>
@@ -328,6 +397,17 @@
                 <span id="duration">0:00</span>
             </div>
         </footer>
+
+        <div id="rename-overlay" role="dialog" aria-modal="true" aria-labelledby="rename-label">
+            <div id="rename-dialog">
+                <label id="rename-label" for="rename-input">Playlist name</label>
+                <input id="rename-input" type="text" maxlength="100" autocomplete="off" />
+                <div id="rename-actions">
+                    <button id="rename-cancel" type="button">Cancel</button>
+                    <button id="rename-ok" type="button">OK</button>
+                </div>
+            </div>
+        </div>
 
         <script type="module" src="src/index.js"></script>
     </body>
