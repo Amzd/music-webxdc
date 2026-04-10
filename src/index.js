@@ -1,5 +1,4 @@
 import { RealTime } from '@webxdc/realtime'
-
 import { parseBlob } from 'music-metadata'
 
 import { CHUNK_SIZE, db, getDownloadProgress } from './lib/storage'
@@ -194,7 +193,7 @@ async function init() {
 					new Blob([pic.data], { type: pic.format })
 				)
 				currentArtworkUrls.push(url)
-				return { src: url, sizes: '512x512', type: pic.format }
+				return { src: url, type: pic.format }
 			})
 			navigator.mediaSession.metadata = new MediaMetadata({
 				title: common?.title || (file?.name ?? id),
