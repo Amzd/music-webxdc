@@ -293,6 +293,10 @@ async function init() {
 
 	// ── Media Session action handlers ──────────────────────────────────────
 
+	if ('audioSession' in navigator) {
+		navigator.audioSession.type = 'play'
+	}
+
 	if ('mediaSession' in navigator) {
 		navigator.mediaSession.setActionHandler('play', () => {
 			audio.play()
@@ -305,25 +309,6 @@ async function init() {
 		})
 		navigator.mediaSession.setActionHandler('nexttrack', () => {
 			if (currentIndex < trackIds.length - 1) playTrack(currentIndex + 1)
-		})
-		navigator.mediaSession.setActionHandler('seekto', (details) => {
-			if (details.seekTime !== undefined && isFinite(audio.duration)) {
-				audio.currentTime = details.seekTime
-			}
-		})
-		navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-			if (!isFinite(audio.duration)) return
-			audio.currentTime = Math.max(
-				0,
-				audio.currentTime - (details.seekOffset ?? 10)
-			)
-		})
-		navigator.mediaSession.setActionHandler('seekforward', (details) => {
-			if (!isFinite(audio.duration)) return
-			audio.currentTime = Math.min(
-				audio.duration,
-				audio.currentTime + (details.seekOffset ?? 10)
-			)
 		})
 	}
 
