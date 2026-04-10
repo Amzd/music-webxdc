@@ -80,6 +80,66 @@ async function init() {
 		})
 	}
 
+	/**
+	 * Pushes current playback position into the shared realtime state so peers
+	 * can see what is playing.
+	 *
+	 * @param {boolean} playing
+	 */
+	function broadcastPlayback(playing) {
+		const state = realtime.getState() ?? { files: [], nowPlaying: null }
+		const fileId = currentIndex >= 0 ? (trackIds[currentIndex] ?? null) : null
+		realtime.setState({
+			...state,
+			nowPlaying: fileId
+				? {
+						fileId,
+						isPlaying: playing,
+						startTime: audio.currentTime,
+						startedAt: Date.now(),
+					}
+				: null,
+		})
+	}
+
+	/**
+	 * On first open, if a peer is actively playing a fully-downloaded track,
+	 * ask the user whether they want to join and seek to the current position.
+	 *
+	 * @param {import('@webxdc/realtime').Peer<
+	 * 	import('./lib/validate-payload').AppState
+	 * >[]} peers
+	 */
+	async function checkSyncOnOpen(peers) {
+		const files = realtime.getState()?.files ?? []
+		for (const peer of peers) {
+			const np = peer.state?.nowPlaying
+			if (!np || !np.isPlaying) continue
+			const file = files.find((f) => f.id === np.fileId)
+			if (!file || file.pending.length > 0) continue
+			const index = trackIds.indexOf(np.fileId)
+			if (index === -1) continue
+			if (!confirm(`A peer is listening to "${file.name}". Join them?`)) break
+			await playTrack(index)
+			const elapsed = (Date.now() - np.startedAt) / 1000
+			const seekTo = np.startTime + elapsed
+			if (isFinite(audio.duration) && seekTo < audio.duration) {
+				audio.currentTime = seekTo
+			} else {
+				audio.addEventListener(
+					'loadedmetadata',
+					() => {
+						const elapsed = (Date.now() - np.startedAt) / 1000
+						const seekTo = np.startTime + elapsed
+						if (seekTo < audio.duration) audio.currentTime = seekTo
+					},
+					{ once: true }
+				)
+			}
+			break
+		}
+	}
+
 	const ICON_PLAY =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>'
 	const ICON_PAUSE =
@@ -205,9 +265,9 @@ async function init() {
 				album: '',
 			})
 		}
-		audio.play()
-
+		// Set currentIndex before play() so the 'play' event sees the correct track.
 		currentIndex = index
+		audio.play()
 		isPlaying = true
 		nowPlaying.textContent = file?.name ?? id
 		playBtn.disabled = false
@@ -288,6 +348,7 @@ async function init() {
 		if ('mediaSession' in navigator) {
 			navigator.mediaSession.playbackState = 'playing'
 		}
+		broadcastPlayback(true)
 	})
 
 	audio.addEventListener('pause', () => {
@@ -296,6 +357,7 @@ async function init() {
 		if ('mediaSession' in navigator) {
 			navigator.mediaSession.playbackState = 'paused'
 		}
+		broadcastPlayback(false)
 	})
 
 	// ── Media Session action handlers ──────────────────────────────────────
@@ -410,8 +472,8 @@ async function init() {
 			await db.chunks.add({ file: id, id: i, blob: file.slice(start, end) })
 		}
 
-		const currentFiles = realtime.getState()?.files ?? []
-		realtime.setState({ files: [...currentFiles, meta] })
+		const currentState = realtime.getState() ?? { files: [], nowPlaying: null }
+		realtime.setState({ ...currentState, files: [...currentState.files, meta] })
 		refreshPlaylist([meta])
 	}
 
@@ -421,6 +483,9 @@ async function init() {
 	// of which run on the JS single-threaded event loop, so no locking is needed.
 	/** @type {import('./lib/validate-payload').PeerRequest | null} */
 	let currentRequest = null
+
+	/** Whether we have already prompted the user to join a peer's session. */
+	let hasAskedToSync = false
 
 	/** Milliseconds before a chunk request is considered timed-out. */
 	const CHUNK_REQUEST_TIMEOUT_MS = 10_000
@@ -552,7 +617,8 @@ async function init() {
 		}
 
 		if (changed) {
-			realtime.setState({ files })
+			const state = realtime.getState() ?? { files: [], nowPlaying: null }
+			realtime.setState({ ...state, files })
 			refreshPlaylist(files)
 		}
 	}
@@ -608,7 +674,8 @@ async function init() {
 				) {
 					currentRequest = null
 				}
-				realtime.setState({ files })
+				const state = realtime.getState() ?? { files: [], nowPlaying: null }
+				realtime.setState({ ...state, files })
 				refreshPlaylist(files)
 			}
 		}
@@ -623,6 +690,10 @@ async function init() {
 	const realtime = new RealTime({
 		onPeersChanged: (peers) => {
 			void syncFileList(peers)
+			if (!hasAskedToSync && peers.length > 0) {
+				hasAskedToSync = true
+				void checkSyncOnOpen(peers)
+			}
 		},
 		onPayload: (_deviceId, payload) => {
 			void handlePayload(_deviceId, payload)
@@ -632,7 +703,7 @@ async function init() {
 	// ── startup ────────────────────────────────────────────────────────────
 
 	const allFiles = await db.files.toArray()
-	realtime.setState({ files: allFiles })
+	realtime.setState({ files: allFiles, nowPlaying: null })
 	realtime.connect()
 	window.addEventListener('beforeunload', () => realtime.disconnect())
 	refreshPlaylist(allFiles)
