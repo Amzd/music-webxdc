@@ -126,16 +126,16 @@ async function init() {
 
 	/**
 	 * If sync is enabled and a peer is actively playing a fully-downloaded track
-	 * while we are idle, start playing at the peer's current position.
-	 * Only follows the peer with the newest actionTime, and only when that
-	 * actionTime is newer than our own nowPlaying.actionTime.
+	 * while we are idle, start playing at the peer's current position. Only
+	 * follows the peer with the newest actionTime, and only when that actionTime
+	 * is newer than our own nowPlaying.actionTime.
 	 *
 	 * @param {import('@webxdc/realtime').Peer<
 	 * 	import('./lib/validate-payload').AppState
 	 * >[]} peers
 	 */
 	async function trySyncToPeer(peers) {
-		if (!isSyncing || isPlaying) return
+        if (!isSyncing) return
         const state = realtime.getState()
 		const files = state?.files ?? []
 		const myActionTime = state?.nowPlaying?.actionTime ?? 0
