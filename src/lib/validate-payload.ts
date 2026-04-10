@@ -26,6 +26,7 @@ export type NowPlaying = {
 export type AppState = {
 	files: Array<FileMeta>
 	nowPlaying: NowPlaying | null
+	playlistName?: string
 }
 
 export type PeerRequest = {

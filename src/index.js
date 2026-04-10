@@ -13,6 +13,9 @@ async function init() {
 	const fileInput = /** @type {HTMLInputElement} */ (
 		document.getElementById('file-input')
 	)
+	const titleEl = /** @type {HTMLHeadingElement} */ (
+		document.querySelector('header h1')
+	)
 	const playlist = /** @type {HTMLElement} */ (
 		document.getElementById('playlist')
 	)
@@ -73,6 +76,20 @@ async function init() {
 	 * >}
 	 */
 	const metadataCache = new Map()
+
+	const PLAYLIST_NAME_KEY = 'playlistName'
+	let playlistName = localStorage.getItem(PLAYLIST_NAME_KEY) ?? 'Music'
+
+	/** @param {string} name */
+	function applyPlaylistName(name) {
+		playlistName = name
+		localStorage.setItem(PLAYLIST_NAME_KEY, name)
+		document.title = name
+		titleEl.textContent = '🎵 ' + name
+	}
+
+	applyPlaylistName(playlistName)
+
 	// ── helpers ────────────────────────────────────────────────────────────
 
 	/** @param {Blob} blob @returns {Promise<string>} */
@@ -487,6 +504,15 @@ async function init() {
 
 	// ── upload ─────────────────────────────────────────────────────────────
 
+	titleEl.addEventListener('click', () => {
+		const newName = prompt('Playlist name:', playlistName)
+		if (!newName || newName === playlistName) return
+		applyPlaylistName(newName)
+		const state = realtime.getState() ?? { files: [], nowPlaying: null }
+		realtime.setState({ ...state, playlistName: newName })
+		window.webxdc.sendUpdate({ payload: null, document: newName }, '')
+	})
+
 	uploadBtn.addEventListener('click', () => fileInput.click())
 
 	fileInput.addEventListener('change', async () => {
@@ -634,6 +660,11 @@ async function init() {
 		let changed = false
 
 		for (const peer of peers) {
+			const peerName = peer.state?.playlistName
+			if (peerName && peerName !== playlistName) {
+				applyPlaylistName(peerName)
+			}
+
 			const peerFiles = peer.state?.files ?? []
 			for (let peerFile of peerFiles) {
 				const myFile = files.find((f) => f.id === peerFile.id)
