@@ -1,5 +1,6 @@
 import { RealTime } from '@webxdc/realtime'
 
+import { readArtwork } from './lib/read-artwork'
 import { CHUNK_SIZE, db, getDownloadProgress } from './lib/storage'
 import { isRequest, isResponse } from './lib/validate-payload'
 
@@ -46,12 +47,18 @@ async function init() {
 	let isPlaying = false
 	/** @type {string | null} */
 	let currentObjectUrl = null
+	/** @type {string | null} */
+	let currentArtworkUrl = null
 
 	const audio = new Audio()
 
 	/** Map from file ID to its playlist button element. */
 	/** @type {Map<string, HTMLButtonElement>} */
 	const trackElements = new Map()
+
+	/** Cache of extracted artwork per file ID. Null means no artwork found. */
+	/** @type {Map<string, { blob: Blob; mimeType: string } | null>} */
+	const artworkCache = new Map()
 
 	// ── helpers ────────────────────────────────────────────────────────────
 
@@ -157,6 +164,11 @@ async function init() {
 			currentObjectUrl = null
 		}
 
+		if (currentArtworkUrl) {
+			URL.revokeObjectURL(currentArtworkUrl)
+			currentArtworkUrl = null
+		}
+
 		const blob = new Blob(
 			chunks.map((c) => c.blob),
 			{ type: 'audio/mpeg' }
@@ -174,8 +186,20 @@ async function init() {
 		highlightTrack(index)
 
 		if ('mediaSession' in navigator) {
+			/** @type {MediaImage[]} */
+			const artwork = []
+			if (!artworkCache.has(id)) {
+				const firstChunkBuffer = await chunks[0].blob.arrayBuffer()
+				artworkCache.set(id, readArtwork(firstChunkBuffer))
+			}
+			const artworkResult = artworkCache.get(id)
+			if (artworkResult) {
+				currentArtworkUrl = URL.createObjectURL(artworkResult.blob)
+				artwork.push({ src: currentArtworkUrl, type: artworkResult.mimeType })
+			}
 			navigator.mediaSession.metadata = new MediaMetadata({
 				title: file?.name ?? id,
+				artwork,
 			})
 		}
 	}
