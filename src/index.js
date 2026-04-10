@@ -136,8 +136,9 @@ async function init() {
 	 */
 	async function trySyncToPeer(peers) {
 		if (!isSyncing || isPlaying) return
-		const files = realtime.getState()?.files ?? []
-		const myActionTime = realtime.getState()?.nowPlaying?.actionTime ?? 0
+        const state = realtime.getState()
+		const files = state?.files ?? []
+		const myActionTime = state?.nowPlaying?.actionTime ?? 0
 
 		// Find the peer with the newest actionTime that is still playing.
 		/** @type {import('./lib/validate-payload').NowPlaying | null} */
