@@ -87,8 +87,8 @@ async function init() {
 
 	/**
 	 * Pushes current playback position into the shared realtime state so peers
-	 * can see what is playing. Publishes null when sync is disabled so peers
-	 * know this device is listening solo.
+	 * can see what is playing. Publishes null when sync is disabled so peers know
+	 * this device is listening solo.
 	 *
 	 * @param {boolean} playing
 	 */
@@ -125,8 +125,8 @@ async function init() {
 	}
 
 	/**
-	 * If sync is enabled and a peer is actively playing a fully-downloaded
-	 * track while we are idle, start playing at the peer's current position.
+	 * If sync is enabled and a peer is actively playing a fully-downloaded track
+	 * while we are idle, start playing at the peer's current position.
 	 *
 	 * @param {import('@webxdc/realtime').Peer<
 	 * 	import('./lib/validate-payload').AppState
@@ -145,18 +145,17 @@ async function init() {
 			await playTrack(index)
 			const elapsed = (Date.now() - np.startedAt) / 1000
 			const seekTo = np.currentTime + elapsed
+			while (seekTo >= audio.duration) {
+				seekTo -= audio.duration
+				index += 1
+				await playTrack(index)
+			}
 			if (isFinite(audio.duration) && seekTo < audio.duration) {
 				audio.currentTime = seekTo
-			} else {
-				audio.addEventListener(
-					'loadedmetadata',
-					() => {
-						const elapsed = (Date.now() - np.startedAt) / 1000
-						const seekTo = np.currentTime + elapsed
-						if (seekTo < audio.duration) audio.currentTime = seekTo
-					},
-					{ once: true }
-				)
+				while (audio.currentTime < seekTo) {
+					audio.currentTime = seekTo
+					await new Promise((r) => setTimeout(r, 10))
+				}
 			}
 			break
 		}
@@ -244,6 +243,14 @@ async function init() {
 		}
 	}
 
+	function setAudioSrc(src) {
+		return new Promise((resolve) => {
+			audio.src = src
+			audio.load()
+			audio.addEventListener('canplaythrough', resolve, { once: true })
+		})
+	}
+
 	/** @param {number} index */
 	async function playTrack(index) {
 		if (index < 0 || index >= trackIds.length) return
@@ -279,7 +286,7 @@ async function init() {
 		// determine the control layout (prev/next track vs. skip-10s) at the
 		// moment playback starts. Without metadata iOS defaults to skip buttons.
 		currentObjectUrl = URL.createObjectURL(blob)
-		audio.src = currentObjectUrl
+		await setAudioSrc(currentObjectUrl)
 		if ('mediaSession' in navigator) {
 			navigator.mediaSession.metadata = new MediaMetadata({
 				title: file?.name ?? id,
@@ -444,9 +451,7 @@ async function init() {
 			playTrack((currentIndex + 1) % trackIds.length)
 		}
 	}
-
-	document.addEventListener('pointerup', onSeekEnd)
-	document.addEventListener('pointercancel', onSeekEnd)
+	progressBar.addEventListener('change', onSeekEnd)
 
 	const seek = throttleWithTrailing(() => {
 		audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
