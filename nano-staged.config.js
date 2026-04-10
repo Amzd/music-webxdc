@@ -1,3 +1,3 @@
 export default {
-  '*': ['prettier --write --ignore-unknown --cache'],
+    '*': ['prettier --write --ignore-unknown --cache'],
 }

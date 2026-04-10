@@ -15,7 +15,7 @@ db.version(1).stores({ files: 'id', chunks: '[file+id]' })
  * @returns {number}
  */
 export function getDownloadProgress(file) {
-  const total = Math.ceil(file.size / CHUNK_SIZE)
-  const done = total - file.pending.length
-  return Math.floor((done / total) * 100)
+    const total = Math.ceil(file.size / CHUNK_SIZE)
+    const done = total - file.pending.length
+    return Math.floor((done / total) * 100)
 }

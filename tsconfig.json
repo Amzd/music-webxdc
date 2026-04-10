@@ -1,23 +1,23 @@
 {
-  "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true,
-    "erasableSyntaxOnly": true,
-    "esModuleInterop": true,
-    "incremental": true,
-    "isolatedModules": true,
-    "lib": ["es2022", "dom", "dom.iterable"],
-    "module": "preserve",
-    "moduleDetection": "force",
-    "noEmit": true,
-    "noImplicitOverride": true,
-    "noUncheckedIndexedAccess": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "target": "es2022",
-    "verbatimModuleSyntax": true
-  },
-  "include": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "dist", "dist-xdc"]
+    "compilerOptions": {
+        "allowJs": true,
+        "checkJs": true,
+        "erasableSyntaxOnly": true,
+        "esModuleInterop": true,
+        "incremental": true,
+        "isolatedModules": true,
+        "lib": ["es2022", "dom", "dom.iterable"],
+        "module": "preserve",
+        "moduleDetection": "force",
+        "noEmit": true,
+        "noImplicitOverride": true,
+        "noUncheckedIndexedAccess": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "target": "es2022",
+        "verbatimModuleSyntax": true
+    },
+    "include": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"],
+    "exclude": ["node_modules", "dist", "dist-xdc"]
 }

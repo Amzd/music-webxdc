@@ -1,322 +1,334 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1"
-    />
-    <script src="webxdc.js"></script>
-    <title>Music Player</title>
-    <style>
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
-      :root {
-        --bg: #121212;
-        --surface: #1e1e1e;
-        --surface2: #2a2a2a;
-        --accent: #1db954;
-        --text: #e0e0e0;
-        --text-muted: #888;
-        --player-height: 130px;
-        --header-height: 56px;
-      }
-
-      body {
-        font-family: system-ui, sans-serif;
-        background: var(--bg);
-        color: var(--text);
-        height: 100dvh;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-
-      /* ── header ── */
-
-      header {
-        height: var(--header-height);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 16px;
-        background: var(--surface);
-        flex-shrink: 0;
-      }
-
-      header h1 {
-        font-size: 1.1rem;
-        font-weight: 700;
-        cursor: pointer;
-        user-select: none;
-      }
-
-      #upload-btn {
-        background: var(--accent);
-        color: #000;
-        border: none;
-        border-radius: 20px;
-        padding: 8px 16px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      #upload-btn:hover {
-        opacity: 0.85;
-      }
-
-      /* ── playlist ── */
-
-      #playlist {
-        flex: 1;
-        overflow-y: auto;
-        padding: 8px 0;
-      }
-
-      #empty-msg {
-        color: var(--text-muted);
-        text-align: center;
-        padding: 48px 16px;
-        font-size: 0.9rem;
-      }
-
-      .playlist-row {
-        display: flex;
-        align-items: center;
-        position: relative;
-      }
-
-      .playlist-row:hover {
-        background: var(--surface2);
-      }
-
-      .playlist-item {
-        flex: 1;
-        min-width: 0;
-        background: none;
-        border: none;
-        color: var(--text);
-        text-align: left;
-        padding: 14px 20px;
-        font-size: 0.95rem;
-        cursor: pointer;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-      }
-
-      .playlist-item:hover {
-        background: none;
-      }
-
-      .playlist-item.active {
-        color: var(--accent);
-        font-weight: 600;
-      }
-
-      .playlist-item.downloading {
-        color: var(--text-muted);
-        cursor: default;
-      }
-
-      .playlist-menu-btn {
-        flex-shrink: 0;
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        font-size: 1.3rem;
-        line-height: 1;
-        padding: 14px 16px;
-        cursor: pointer;
-      }
-
-      .playlist-menu-btn:hover {
-        color: var(--text);
-      }
-
-      .playlist-menu {
-        position: absolute;
-        right: 8px;
-        top: 100%;
-        background: var(--surface2);
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-        z-index: 100;
-        min-width: 120px;
-        overflow: hidden;
-      }
-
-      .playlist-menu-delete {
-        display: block;
-        width: 100%;
-        background: none;
-        border: none;
-        color: #e05555;
-        text-align: left;
-        padding: 12px 16px;
-        font-size: 0.9rem;
-        cursor: pointer;
-      }
-
-      .playlist-menu-delete:hover {
-        background: rgba(255, 255, 255, 0.08);
-      }
-
-      /* ── player bar ── */
-
-      #player {
-        height: var(--player-height);
-        background: var(--surface);
-        border-top: 1px solid var(--surface2);
-        padding: 12px 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        flex-shrink: 0;
-      }
-
-      #now-playing {
-        font-size: 0.9rem;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        color: var(--text-muted);
-      }
-
-      #player-controls {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 24px;
-        position: relative;
-      }
-
-      #sync-btn {
-        position: absolute !important;
-        left: 0 !important;
-        font-size: 1.1rem !important;
-        color: var(--text-muted) !important;
-      }
-
-      #sync-btn[aria-pressed='true'] {
-        color: var(--accent) !important;
-      }
-
-      #player-controls button {
-        background: none;
-        border: none;
-        color: var(--text);
-        font-size: 1.4rem;
-        cursor: pointer;
-        padding: 4px;
-        line-height: 1;
-      }
-
-      #player-controls button svg {
-        width: 1em;
-        height: 1em;
-        display: block;
-        pointer-events: none;
-      }
-
-      #player-controls button:disabled {
-        opacity: 0.35;
-        cursor: default;
-      }
-
-      #play-btn {
-        background: var(--accent) !important;
-        color: #000 !important;
-        border-radius: 50% !important;
-        width: 40px;
-        height: 40px;
-        font-size: 1.1rem !important;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      #progress-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.75rem;
-        color: var(--text-muted);
-      }
-
-      #progress-bar {
-        flex: 1;
-        accent-color: var(--accent);
-        height: 4px;
-        cursor: pointer;
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <h1>🎵 Music</h1>
-      <button id="upload-btn" type="button">+ Add MP3</button>
-      <input
-        type="file"
-        id="file-input"
-        accept="audio/mpeg,.mp3"
-        multiple
-        hidden
-      />
-    </header>
-
-    <div id="playlist">
-      <p id="empty-msg">
-        No songs yet. Tap &ldquo;+ Add MP3&rdquo; to share one!
-      </p>
-    </div>
-
-    <footer id="player">
-      <span id="now-playing">Nothing playing</span>
-      <div id="player-controls">
-        <button
-          id="sync-btn"
-          type="button"
-          aria-label="Listen solo"
-          aria-pressed="false"
-        ></button>
-        <button id="prev-btn" type="button" aria-label="Previous">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
-          </svg>
-        </button>
-        <button id="play-btn" type="button" disabled aria-label="Play">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </button>
-        <button id="next-btn" type="button" aria-label="Next">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-          </svg>
-        </button>
-      </div>
-      <div id="progress-container">
-        <span id="current-time">0:00</span>
-        <input
-          type="range"
-          id="progress-bar"
-          min="0"
-          max="100"
-          value="0"
-          aria-label="Seek"
+    <head>
+        <meta charset="utf-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, maximum-scale=1"
         />
-        <span id="duration">0:00</span>
-      </div>
-    </footer>
+        <script src="webxdc.js"></script>
+        <title>Music Player</title>
+        <style>
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
 
-    <script type="module" src="src/index.js"></script>
-  </body>
+            :root {
+                --bg: #121212;
+                --surface: #1e1e1e;
+                --surface2: #2a2a2a;
+                --accent: #1db954;
+                --text: #e0e0e0;
+                --text-muted: #888;
+                --player-height: 130px;
+                --header-height: 56px;
+            }
+
+            body {
+                font-family: system-ui, sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                height: 100dvh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            /* ── header ── */
+
+            header {
+                height: var(--header-height);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 16px;
+                background: var(--surface);
+                flex-shrink: 0;
+            }
+
+            header h1 {
+                font-size: 1.1rem;
+                font-weight: 700;
+                cursor: pointer;
+                user-select: none;
+            }
+
+            #upload-btn {
+                background: var(--accent);
+                color: #000;
+                border: none;
+                border-radius: 20px;
+                padding: 8px 16px;
+                font-size: 0.85rem;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            #upload-btn:hover {
+                opacity: 0.85;
+            }
+
+            /* ── playlist ── */
+
+            #playlist {
+                flex: 1;
+                overflow-y: auto;
+                padding: 8px 0;
+            }
+
+            #empty-msg {
+                color: var(--text-muted);
+                text-align: center;
+                padding: 48px 16px;
+                font-size: 0.9rem;
+            }
+
+            .playlist-row {
+                display: flex;
+                align-items: center;
+                position: relative;
+            }
+
+            .playlist-row:hover {
+                background: var(--surface2);
+            }
+
+            .playlist-item {
+                flex: 1;
+                min-width: 0;
+                background: none;
+                border: none;
+                color: var(--text);
+                text-align: left;
+                padding: 14px 20px;
+                font-size: 0.95rem;
+                cursor: pointer;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+
+            .playlist-item:hover {
+                background: none;
+            }
+
+            .playlist-item.active {
+                color: var(--accent);
+                font-weight: 600;
+            }
+
+            .playlist-item.downloading {
+                color: var(--text-muted);
+                cursor: default;
+            }
+
+            .playlist-menu-btn {
+                flex-shrink: 0;
+                background: none;
+                border: none;
+                color: var(--text-muted);
+                font-size: 1.3rem;
+                line-height: 1;
+                padding: 14px 16px;
+                cursor: pointer;
+            }
+
+            .playlist-menu-btn:hover {
+                color: var(--text);
+            }
+
+            .playlist-menu {
+                position: absolute;
+                right: 8px;
+                top: 100%;
+                background: var(--surface2);
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+                z-index: 100;
+                min-width: 120px;
+                overflow: hidden;
+            }
+
+            .playlist-menu-delete {
+                display: block;
+                width: 100%;
+                background: none;
+                border: none;
+                color: #e05555;
+                text-align: left;
+                padding: 12px 16px;
+                font-size: 0.9rem;
+                cursor: pointer;
+            }
+
+            .playlist-menu-delete:hover {
+                background: rgba(255, 255, 255, 0.08);
+            }
+
+            /* ── player bar ── */
+
+            #player {
+                height: var(--player-height);
+                background: var(--surface);
+                border-top: 1px solid var(--surface2);
+                padding: 12px 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                flex-shrink: 0;
+            }
+
+            #now-playing {
+                font-size: 0.9rem;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                color: var(--text-muted);
+            }
+
+            #player-controls {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 24px;
+                position: relative;
+            }
+
+            #sync-btn {
+                position: absolute !important;
+                left: 0 !important;
+                font-size: 1.1rem !important;
+                color: var(--text-muted) !important;
+            }
+
+            #sync-btn[aria-pressed='true'] {
+                color: var(--accent) !important;
+            }
+
+            #player-controls button {
+                background: none;
+                border: none;
+                color: var(--text);
+                font-size: 1.4rem;
+                cursor: pointer;
+                padding: 4px;
+                line-height: 1;
+            }
+
+            #player-controls button svg {
+                width: 1em;
+                height: 1em;
+                display: block;
+                pointer-events: none;
+            }
+
+            #player-controls button:disabled {
+                opacity: 0.35;
+                cursor: default;
+            }
+
+            #play-btn {
+                background: var(--accent) !important;
+                color: #000 !important;
+                border-radius: 50% !important;
+                width: 40px;
+                height: 40px;
+                font-size: 1.1rem !important;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #progress-container {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.75rem;
+                color: var(--text-muted);
+            }
+
+            #progress-bar {
+                flex: 1;
+                accent-color: var(--accent);
+                height: 4px;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>🎵 Music</h1>
+            <button id="upload-btn" type="button">+ Add MP3</button>
+            <input
+                type="file"
+                id="file-input"
+                accept="audio/mpeg,.mp3"
+                multiple
+                hidden
+            />
+        </header>
+
+        <div id="playlist">
+            <p id="empty-msg">
+                No songs yet. Tap &ldquo;+ Add MP3&rdquo; to share one!
+            </p>
+        </div>
+
+        <footer id="player">
+            <span id="now-playing">Nothing playing</span>
+            <div id="player-controls">
+                <button
+                    id="sync-btn"
+                    type="button"
+                    aria-label="Listen solo"
+                    aria-pressed="false"
+                ></button>
+                <button id="prev-btn" type="button" aria-label="Previous">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
+                        <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+                    </svg>
+                </button>
+                <button id="play-btn" type="button" disabled aria-label="Play">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </button>
+                <button id="next-btn" type="button" aria-label="Next">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
+                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                    </svg>
+                </button>
+            </div>
+            <div id="progress-container">
+                <span id="current-time">0:00</span>
+                <input
+                    type="range"
+                    id="progress-bar"
+                    min="0"
+                    max="100"
+                    value="0"
+                    aria-label="Seek"
+                />
+                <span id="duration">0:00</span>
+            </div>
+        </footer>
+
+        <script type="module" src="src/index.js"></script>
+    </body>
 </html>
