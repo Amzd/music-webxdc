@@ -141,6 +141,7 @@ async function init() {
 		playlist.appendChild(item)
 		trackIds.push(file.id)
 		trackElements.set(file.id, item)
+		updateMediaSessionHandlers()
 	}
 
 	/**
@@ -201,6 +202,7 @@ async function init() {
 		playBtn.disabled = false
 		updatePlayButton()
 		highlightTrack(index)
+		updateMediaSessionHandlers()
 
 		// Update the media session metadata asynchronously after playback has
 		// started. iOS will pick up metadata set while audio is already playing.
@@ -257,6 +259,7 @@ async function init() {
 		} else {
 			isPlaying = false
 			updatePlayButton()
+			updateMediaSessionHandlers()
 			if ('mediaSession' in navigator) {
 				navigator.mediaSession.playbackState = 'none'
 			}
@@ -304,12 +307,44 @@ async function init() {
 		navigator.mediaSession.setActionHandler('pause', () => {
 			audio.pause()
 		})
-		navigator.mediaSession.setActionHandler('previoustrack', () => {
-			if (currentIndex > 0) playTrack(currentIndex - 1)
-		})
-		navigator.mediaSession.setActionHandler('nexttrack', () => {
-			if (currentIndex < trackIds.length - 1) playTrack(currentIndex + 1)
-		})
+
+		// Explicitly disable seeking controls so iOS shows next/prev track
+		// buttons instead of the default seek-backward/seek-forward controls.
+		try {
+			navigator.mediaSession.setActionHandler('seekbackward', null)
+		} catch (_e) {
+			// Ignore – browser does not support this action
+		}
+		try {
+			navigator.mediaSession.setActionHandler('seekforward', null)
+		} catch (_e) {
+			// Ignore – browser does not support this action
+		}
+		try {
+			navigator.mediaSession.setActionHandler('seekto', null)
+		} catch (_e) {
+			// Ignore – browser does not support this action
+		}
+	}
+
+	/**
+	 * Refreshes the previoustrack/nexttrack Media Session handlers based on
+	 * the current position in the playlist. Setting a handler to null signals
+	 * to the OS that the action is unavailable, which hides or disables the
+	 * corresponding system control button on iOS.
+	 */
+	function updateMediaSessionHandlers() {
+		if (!('mediaSession' in navigator)) return
+		navigator.mediaSession.setActionHandler(
+			'previoustrack',
+			currentIndex > 0 ? () => playTrack(currentIndex - 1) : null
+		)
+		navigator.mediaSession.setActionHandler(
+			'nexttrack',
+			currentIndex < trackIds.length - 1
+				? () => playTrack(currentIndex + 1)
+				: null
+		)
 	}
 
 	// ── controls ───────────────────────────────────────────────────────────
