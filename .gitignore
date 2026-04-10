@@ -12,3 +12,6 @@ pnpm-debug.log*
 # Caches
 .eslintcache
 *.tsbuildInfo
+
+# npm lockfile (project uses pnpm)
+package-lock.json
