@@ -505,8 +505,9 @@ async function init() {
 	// ── upload ─────────────────────────────────────────────────────────────
 
 	titleEl.addEventListener('click', () => {
-		const newName = prompt('Playlist name:', playlistName)
-		if (!newName || newName === playlistName) return
+		const raw = prompt('Playlist name:', playlistName)
+		const newName = raw?.trim()
+		if (!newName || newName === playlistName || newName.length > 100) return
 		applyPlaylistName(newName)
 		const state = realtime.getState() ?? { files: [], nowPlaying: null }
 		realtime.setState({ ...state, playlistName: newName })
