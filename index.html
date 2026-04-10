@@ -2,7 +2,10 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, maximum-scale=1"
+		/>
 		<script src="webxdc.js"></script>
 		<title>Music Player</title>
 		<style>
@@ -82,9 +85,19 @@
 				font-size: 0.9rem;
 			}
 
+			.playlist-row {
+				display: flex;
+				align-items: center;
+				position: relative;
+			}
+
+			.playlist-row:hover {
+				background: var(--surface2);
+			}
+
 			.playlist-item {
-				display: block;
-				width: 100%;
+				flex: 1;
+				min-width: 0;
 				background: none;
 				border: none;
 				color: var(--text);
@@ -98,7 +111,7 @@
 			}
 
 			.playlist-item:hover {
-				background: var(--surface2);
+				background: none;
 			}
 
 			.playlist-item.active {
@@ -109,6 +122,49 @@
 			.playlist-item.downloading {
 				color: var(--text-muted);
 				cursor: default;
+			}
+
+			.playlist-menu-btn {
+				flex-shrink: 0;
+				background: none;
+				border: none;
+				color: var(--text-muted);
+				font-size: 1.3rem;
+				line-height: 1;
+				padding: 14px 16px;
+				cursor: pointer;
+			}
+
+			.playlist-menu-btn:hover {
+				color: var(--text);
+			}
+
+			.playlist-menu {
+				position: absolute;
+				right: 8px;
+				top: 100%;
+				background: var(--surface2);
+				border-radius: 8px;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+				z-index: 100;
+				min-width: 120px;
+				overflow: hidden;
+			}
+
+			.playlist-menu-delete {
+				display: block;
+				width: 100%;
+				background: none;
+				border: none;
+				color: #e05555;
+				text-align: left;
+				padding: 12px 16px;
+				font-size: 0.9rem;
+				cursor: pointer;
+			}
+
+			.playlist-menu-delete:hover {
+				background: rgba(255, 255, 255, 0.08);
 			}
 
 			/* ── player bar ── */
@@ -223,12 +279,27 @@
 		<footer id="player">
 			<span id="now-playing">Nothing playing</span>
 			<div id="player-controls">
-				<button id="sync-btn" type="button" aria-label="Listen solo" aria-pressed="false"></button>
-				<button id="prev-btn" type="button" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
-				<button id="play-btn" type="button" disabled aria-label="Play">
-					<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+				<button
+					id="sync-btn"
+					type="button"
+					aria-label="Listen solo"
+					aria-pressed="false"
+				></button>
+				<button id="prev-btn" type="button" aria-label="Previous">
+					<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+					</svg>
 				</button>
-				<button id="next-btn" type="button" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+				<button id="play-btn" type="button" disabled aria-label="Play">
+					<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<path d="M8 5v14l11-7z" />
+					</svg>
+				</button>
+				<button id="next-btn" type="button" aria-label="Next">
+					<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+					</svg>
+				</button>
 			</div>
 			<div id="progress-container">
 				<span id="current-time">0:00</span>

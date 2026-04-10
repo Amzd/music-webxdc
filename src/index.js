@@ -219,24 +219,79 @@ async function init() {
 		}
 	}
 
+	/** @type {{ row: HTMLElement; menu: HTMLElement } | null} */
+	let openMenu = null
+
+	function closeOpenMenu() {
+		if (openMenu) {
+			openMenu.menu.hidden = true
+			openMenu = null
+		}
+	}
+
+	document.addEventListener('click', closeOpenMenu)
+
 	/**
-	 * Adds a new track button to the playlist.
+	 * Adds a new track row to the playlist.
 	 *
 	 * @param {import('./lib/validate-payload').FileMeta} file
 	 */
 	function addTrackToPlaylist(file) {
 		emptyMsg.hidden = true
+		const row = document.createElement('div')
+		row.className = 'playlist-row'
+
 		const item = document.createElement('button')
 		item.className = 'playlist-item'
 		item.type = 'button'
 		updateTrackElement(item, file)
+
+		const menuBtn = document.createElement('button')
+		menuBtn.className = 'playlist-menu-btn'
+		menuBtn.type = 'button'
+		menuBtn.setAttribute('aria-label', 'More options')
+		menuBtn.textContent = '\u22EE'
+
+		const menu = document.createElement('div')
+		menu.className = 'playlist-menu'
+		menu.hidden = true
+
+		const deleteBtn = document.createElement('button')
+		deleteBtn.className = 'playlist-menu-delete'
+		deleteBtn.type = 'button'
+		deleteBtn.textContent = 'Delete'
+
+		menu.appendChild(deleteBtn)
+		row.appendChild(item)
+		row.appendChild(menuBtn)
+		row.appendChild(menu)
+
 		const fileId = file.id
 		item.addEventListener('click', () => {
 			if (item.classList.contains('downloading')) return
 			const index = trackIds.indexOf(fileId)
 			if (index !== -1) playTrack(index)
 		})
-		playlist.appendChild(item)
+
+		menuBtn.addEventListener('click', (e) => {
+			// stopPropagation prevents the document-level click listener from
+			// immediately closing the menu we are about to open.
+			e.stopPropagation()
+			const isOpen = !menu.hidden
+			closeOpenMenu()
+			if (!isOpen) {
+				menu.hidden = false
+				openMenu = { row, menu }
+			}
+		})
+
+		deleteBtn.addEventListener('click', (e) => {
+			e.stopPropagation()
+			closeOpenMenu()
+			deleteTrack(fileId)
+		})
+
+		playlist.appendChild(row)
 		trackIds.push(file.id)
 		trackElements.set(file.id, item)
 	}
@@ -257,6 +312,85 @@ async function init() {
 				updateTrackElement(el, file)
 			}
 		}
+	}
+
+	/**
+	 * Removes a track from the DOM and in-memory structures. Stops playback if
+	 * the removed track was currently playing.
+	 *
+	 * @param {string} fileId
+	 */
+	function removeTrackFromUI(fileId) {
+		const el = trackElements.get(fileId)
+		if (el) {
+			el.closest('.playlist-row')?.remove()
+			trackElements.delete(fileId)
+		}
+
+		const index = trackIds.indexOf(fileId)
+		if (index !== -1) {
+			trackIds.splice(index, 1)
+
+			if (currentIndex === index) {
+				audio.pause()
+				if (currentObjectUrl) {
+					URL.revokeObjectURL(currentObjectUrl)
+					currentObjectUrl = null
+				}
+				isPlaying = false
+				currentIndex = -1
+				nowPlaying.textContent = 'Nothing playing'
+				playBtn.disabled = trackIds.length === 0
+				updatePlayButton()
+				if ('mediaSession' in navigator) {
+					navigator.mediaSession.playbackState = 'none'
+				}
+			} else if (currentIndex > index) {
+				currentIndex--
+			}
+		}
+
+		if (trackIds.length === 0) {
+			emptyMsg.hidden = false
+		}
+
+		highlightTrack(currentIndex)
+	}
+
+	/**
+	 * Deletes a track for all peers: removes local chunks, writes a size-0
+	 * tombstone so the deletion propagates, and updates the shared state.
+	 *
+	 * @param {string} fileId
+	 */
+	async function deleteTrack(fileId) {
+		const wasCurrentTrack =
+			currentIndex >= 0 && trackIds[currentIndex] === fileId
+
+		removeTrackFromUI(fileId)
+
+		const now = Date.now()
+		const existingFile = await db.files.where('id').equals(fileId).first()
+		if (existingFile) {
+			// Keep a tombstone (size: 0) so we never re-download this file.
+			await db.files.put({
+				...existingFile,
+				size: 0,
+				pending: [],
+				lastModified: now,
+			})
+		}
+		await db.chunks.where('file').equals(fileId).delete()
+
+		const currentState = realtime.getState() ?? { files: [], nowPlaying: null }
+		const updatedFiles = currentState.files.map((f) =>
+			f.id === fileId ? { ...f, size: 0, pending: [], lastModified: now } : f
+		)
+		realtime.setState({
+			...currentState,
+			files: updatedFiles,
+			nowPlaying: wasCurrentTrack ? null : currentState.nowPlaying,
+		})
 	}
 
 	function setAudioSrc(src) {
@@ -637,6 +771,32 @@ async function init() {
 			const peerFiles = peer.state?.files ?? []
 			for (let peerFile of peerFiles) {
 				const myFile = files.find((f) => f.id === peerFile.id)
+
+				if (peerFile.size === 0) {
+					// Deletion tombstone from peer.
+					if (!myFile) {
+						// Record the tombstone so we never re-download this file.
+						await db.files.put({ ...peerFile })
+						files.push({ ...peerFile })
+						changed = true
+					} else if (
+						myFile.size > 0 &&
+						peerFile.lastModified >= myFile.lastModified
+					) {
+						// Peer deleted a file we still have - remove it locally.
+						await db.chunks.where('file').equals(peerFile.id).delete()
+						await db.files.put({ ...peerFile })
+						Object.assign(myFile, {
+							size: 0,
+							pending: [],
+							lastModified: peerFile.lastModified,
+						})
+						removeTrackFromUI(peerFile.id)
+						changed = true
+					}
+					continue
+				}
+
 				if (!myFile) {
 					// New file from peer - queue all chunks for download.
 					peerFile = { ...peerFile, pending: [] }
