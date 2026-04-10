@@ -137,6 +137,18 @@
 				align-items: center;
 				justify-content: center;
 				gap: 24px;
+				position: relative;
+			}
+
+			#sync-btn {
+				position: absolute !important;
+				left: 0 !important;
+				font-size: 1.1rem !important;
+				color: var(--text-muted) !important;
+			}
+
+			#sync-btn[aria-pressed='true'] {
+				color: var(--accent) !important;
 			}
 
 			#player-controls button {
@@ -211,6 +223,7 @@
 		<footer id="player">
 			<span id="now-playing">Nothing playing</span>
 			<div id="player-controls">
+				<button id="sync-btn" type="button" aria-label="Listen solo" aria-pressed="false"></button>
 				<button id="prev-btn" type="button" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
 				<button id="play-btn" type="button" disabled aria-label="Play">
 					<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
