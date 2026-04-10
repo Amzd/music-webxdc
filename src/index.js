@@ -315,9 +315,7 @@ async function init() {
 		} catch {
 			// Ignore – browser does not support this action
 		}
-	}
-
-	if ('mediaSession' in navigator) {
+	
 		navigator.mediaSession.setActionHandler('previoustrack', () => {
 			if (trackIds.length === 0) return
 			playTrack(
