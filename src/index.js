@@ -1,6 +1,7 @@
 import { RealTime } from '@webxdc/realtime'
 
-import { readArtwork } from './lib/read-artwork'
+import { parseBlob } from 'music-metadata'
+
 import { CHUNK_SIZE, db, getDownloadProgress } from './lib/storage'
 import { isRequest, isResponse } from './lib/validate-payload'
 
@@ -47,8 +48,8 @@ async function init() {
 	let isPlaying = false
 	/** @type {string | null} */
 	let currentObjectUrl = null
-	/** @type {string | null} */
-	let currentArtworkUrl = null
+	/** @type {string[]} */
+	let currentArtworkUrls = []
 
 	const audio = new Audio()
 
@@ -56,10 +57,9 @@ async function init() {
 	/** @type {Map<string, HTMLButtonElement>} */
 	const trackElements = new Map()
 
-	/** Cache of extracted artwork per file ID. Null means no artwork found. */
-	/** @type {Map<string, { blob: Blob; mimeType: string } | null>} */
-	const artworkCache = new Map()
-
+	/** Cache of parsed metadata per file ID. */
+	/** @type {Map<string, import('music-metadata').ICommonTagsResult>} */
+	const metadataCache = new Map()
 	// ── helpers ────────────────────────────────────────────────────────────
 
 	/** @param {number} seconds */
@@ -159,10 +159,8 @@ async function init() {
 			currentObjectUrl = null
 		}
 
-		if (currentArtworkUrl) {
-			URL.revokeObjectURL(currentArtworkUrl)
-			currentArtworkUrl = null
-		}
+		for (const url of currentArtworkUrls) URL.revokeObjectURL(url)
+		currentArtworkUrls = []
 
 		const blob = new Blob(
 			chunks.map((c) => c.blob),
@@ -181,19 +179,22 @@ async function init() {
 		highlightTrack(index)
 
 		if ('mediaSession' in navigator) {
-			/** @type {MediaImage[]} */
-			const artwork = []
-			if (!artworkCache.has(id)) {
-				const firstChunkBuffer = await chunks[0].blob.arrayBuffer()
-				artworkCache.set(id, readArtwork(firstChunkBuffer))
+			if (!metadataCache.has(id)) {
+				const { common } = await parseBlob(blob)
+				metadataCache.set(id, common)
 			}
-			const artworkResult = artworkCache.get(id)
-			if (artworkResult) {
-				currentArtworkUrl = URL.createObjectURL(artworkResult.blob)
-				artwork.push({ src: currentArtworkUrl, type: artworkResult.mimeType })
-			}
+			const common = metadataCache.get(id)
+			const artwork = (common?.picture ?? []).map((pic) => {
+				const url = URL.createObjectURL(
+					new Blob([pic.data], { type: pic.format })
+				)
+				currentArtworkUrls.push(url)
+				return { src: url, sizes: '512x512', type: pic.format }
+			})
 			navigator.mediaSession.metadata = new MediaMetadata({
-				title: file?.name ?? id,
+				title: common?.title || (file?.name ?? id),
+				artist: common?.artist || 'Unknown',
+				album: common?.album || 'Unknown',
 				artwork,
 			})
 		}
