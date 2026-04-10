@@ -19,8 +19,8 @@ export type NowPlaying = {
 	isPlaying: boolean
 	/** Audio position (seconds) at the moment the state was broadcast. */
 	currentTime: number
-	/** Wall-clock timestamp (ms) when the state was broadcast. */
-	startedAt: number
+	/** Wall-clock timestamp (ms) when this state was last updated. */
+	actionTime: number
 }
 
 export type AppState = {

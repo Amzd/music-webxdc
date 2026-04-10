@@ -103,7 +103,7 @@ async function init() {
 							fileId,
 							isPlaying: playing,
 							currentTime: audio.currentTime,
-							startedAt: Date.now(),
+							actionTime: Date.now(),
 						}
 					: null,
 		})
@@ -127,6 +127,8 @@ async function init() {
 	/**
 	 * If sync is enabled and a peer is actively playing a fully-downloaded track
 	 * while we are idle, start playing at the peer's current position.
+	 * Only follows the peer with the newest actionTime, and only when that
+	 * actionTime is newer than our own nowPlaying.actionTime.
 	 *
 	 * @param {import('@webxdc/realtime').Peer<
 	 * 	import('./lib/validate-payload').AppState
@@ -135,29 +137,38 @@ async function init() {
 	async function trySyncToPeer(peers) {
 		if (!isSyncing || isPlaying) return
 		const files = realtime.getState()?.files ?? []
+		const myActionTime = realtime.getState()?.nowPlaying?.actionTime ?? 0
+
+		// Find the peer with the newest actionTime that is still playing.
+		/** @type {import('./lib/validate-payload').NowPlaying | null} */
+		let bestNp = null
 		for (const peer of peers) {
 			const np = peer.state?.nowPlaying
 			if (!np || !np.isPlaying) continue
+			if (np.actionTime <= myActionTime) continue
 			const file = files.find((f) => f.id === np.fileId)
 			if (!file || file.pending.length > 0) continue
-			const index = trackIds.indexOf(np.fileId)
-			if (index === -1) continue
+			if (trackIds.indexOf(np.fileId) === -1) continue
+			if (!bestNp || np.actionTime > bestNp.actionTime) bestNp = np
+		}
+
+		if (!bestNp) return
+
+		let index = trackIds.indexOf(bestNp.fileId)
+		await playTrack(index)
+		const elapsed = (Date.now() - bestNp.actionTime) / 1000
+		let seekTo = bestNp.currentTime + elapsed
+		while (seekTo >= audio.duration) {
+			seekTo -= audio.duration
+			index += 1
 			await playTrack(index)
-			const elapsed = (Date.now() - np.startedAt) / 1000
-			const seekTo = np.currentTime + elapsed
-			while (seekTo >= audio.duration) {
-				seekTo -= audio.duration
-				index += 1
-				await playTrack(index)
-			}
-			if (isFinite(audio.duration) && seekTo < audio.duration) {
+		}
+		if (isFinite(audio.duration) && seekTo < audio.duration) {
+			audio.currentTime = seekTo
+			while (audio.currentTime < seekTo) {
 				audio.currentTime = seekTo
-				while (audio.currentTime < seekTo) {
-					audio.currentTime = seekTo
-					await new Promise((r) => setTimeout(r, 10))
-				}
+				await new Promise((r) => setTimeout(r, 10))
 			}
-			break
 		}
 	}
 
