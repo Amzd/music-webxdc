@@ -659,7 +659,13 @@ async function init() {
             trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
                 if (!syncedToPeer) {
                     broadcastPlayback()
-                    // TODO: send an update "<self> started a jam!"
+                    window.webxdc.sendUpdate(
+                        {
+                            payload: null,
+                            info: `${window.webxdc.selfName} started a jam!`,
+                        },
+                        ''
+                    )
                 }
             })
         }
