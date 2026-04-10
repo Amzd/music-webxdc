@@ -214,7 +214,6 @@ async function init() {
 						)
 						return /** @type {MediaImage} */ ({
 							src: dataUrl,
-							sizes: '512x512',
 							type: pic.format,
 						})
 					})
