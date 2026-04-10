@@ -191,8 +191,19 @@ async function init() {
 		// Start playback immediately — iOS requires audio.play() to be called
 		// synchronously within the user-gesture handler. Any await before play()
 		// causes iOS to reject the call and the media session never activates.
+		//
+		// Set basic metadata synchronously before play() so that iOS can
+		// determine the control layout (prev/next track vs. skip-10s) at the
+		// moment playback starts. Without metadata iOS defaults to skip buttons.
 		currentObjectUrl = URL.createObjectURL(blob)
 		audio.src = currentObjectUrl
+		if ('mediaSession' in navigator) {
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: file?.name ?? id,
+				artist: '',
+				album: '',
+			})
+		}
 		audio.play()
 
 		currentIndex = index
@@ -202,8 +213,8 @@ async function init() {
 		updatePlayButton()
 		highlightTrack(index)
 
-		// Update the media session metadata asynchronously after playback has
-		// started. iOS will pick up metadata set while audio is already playing.
+		// Update metadata asynchronously with full tags and artwork after
+		// playback has started. iOS picks up metadata updates mid-playback.
 		if ('mediaSession' in navigator) {
 			if (!metadataCache.has(id)) {
 				const { common } = await parseBlob(blob)
