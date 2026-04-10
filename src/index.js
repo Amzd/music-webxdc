@@ -45,6 +45,7 @@ async function init() {
 	let trackIds = []
 	let currentIndex = -1
 	let isPlaying = false
+	let isSeeking = false
 	/** @type {string | null} */
 	let currentObjectUrl = null
 
@@ -262,12 +263,14 @@ async function init() {
 	// ── audio events ───────────────────────────────────────────────────────
 
 	audio.addEventListener('ended', () => {
+		if (isSeeking) return
 		if (trackIds.length > 0) {
 			playTrack((currentIndex + 1) % trackIds.length)
 		}
 	})
 
 	audio.addEventListener('timeupdate', () => {
+		if (isSeeking) return
 		if (!isFinite(audio.duration)) return
 		const pct = (audio.currentTime / audio.duration) * 100
 		progressBar.value = String(pct)
@@ -334,6 +337,21 @@ async function init() {
 		if (trackIds.length === 0) return
 		playTrack((currentIndex + 1) % trackIds.length)
 	})
+
+	progressBar.addEventListener('pointerdown', () => {
+		isSeeking = true
+	})
+
+	const onSeekEnd = () => {
+		if (!isSeeking) return
+		isSeeking = false
+		if (audio.ended && trackIds.length > 0) {
+			playTrack((currentIndex + 1) % trackIds.length)
+		}
+	}
+
+	document.addEventListener('pointerup', onSeekEnd)
+	document.addEventListener('pointercancel', onSeekEnd)
 
 	progressBar.addEventListener('input', () => {
 		if (!isFinite(audio.duration)) return
