@@ -298,24 +298,9 @@ async function init() {
 			audio.pause()
 		})
 
-		// Explicitly disable seeking controls so iOS shows next/prev track
-		// buttons instead of the default seek-backward/seek-forward controls.
-		try {
-			navigator.mediaSession.setActionHandler('seekbackward', null)
-		} catch {
-			// Ignore – browser does not support this action
-		}
-		try {
-			navigator.mediaSession.setActionHandler('seekforward', null)
-		} catch {
-			// Ignore – browser does not support this action
-		}
-		try {
-			navigator.mediaSession.setActionHandler('seekto', null)
-		} catch {
-			// Ignore – browser does not support this action
-		}
-	
+		// Only register previoustrack/nexttrack — never register seekbackward,
+		// seekforward, or seekto so that iOS shows next/prev track buttons
+		// instead of the default skip-10-seconds controls.
 		navigator.mediaSession.setActionHandler('previoustrack', () => {
 			if (trackIds.length === 0) return
 			playTrack(
