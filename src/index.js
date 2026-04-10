@@ -89,10 +89,8 @@ async function init() {
 	 * Pushes current playback position into the shared realtime state so peers
 	 * can see what is playing. Publishes null when sync is disabled so peers know
 	 * this device is listening solo.
-	 *
-	 * @param {boolean} playing
 	 */
-	function broadcastPlayback(playing) {
+	function broadcastPlayback() {
 		const state = realtime.getState() ?? { files: [], nowPlaying: null }
 		const fileId = currentIndex >= 0 ? (trackIds[currentIndex] ?? null) : null
 		realtime.setState({
@@ -101,7 +99,7 @@ async function init() {
 				isSyncing && fileId
 					? {
 							fileId,
-							isPlaying: playing,
+							isPlaying: isPlaying,
 							currentTime: audio.currentTime,
 							actionTime: Date.now(),
 						}
@@ -124,6 +122,7 @@ async function init() {
 		syncBtn.setAttribute('aria-pressed', String(isSyncing))
 	}
 
+	let lastSync = 0
 	/**
 	 * If sync is enabled and a peer is actively playing a fully-downloaded track
 	 * while we are idle, start playing at the peer's current position. Only
@@ -135,8 +134,8 @@ async function init() {
 	 * >[]} peers
 	 */
 	async function trySyncToPeer(peers) {
-        if (!isSyncing) return
-        const state = realtime.getState()
+		if (!isSyncing) return
+		const state = realtime.getState()
 		const files = state?.files ?? []
 		const myActionTime = state?.nowPlaying?.actionTime ?? 0
 
@@ -145,7 +144,7 @@ async function init() {
 		let bestNp = null
 		for (const peer of peers) {
 			const np = peer.state?.nowPlaying
-			if (!np || !np.isPlaying) continue
+			if (!np) continue
 			if (np.actionTime <= myActionTime) continue
 			const file = files.find((f) => f.id === np.fileId)
 			if (!file || file.pending.length > 0) continue
@@ -154,6 +153,8 @@ async function init() {
 		}
 
 		if (!bestNp) return
+		if (bestNp.actionTime <= lastSync) return
+		lastSync = bestNp.actionTime
 
 		let index = trackIds.indexOf(bestNp.fileId)
 		await playTrack(index)
@@ -171,6 +172,9 @@ async function init() {
 				await new Promise((r) => setTimeout(r, 10))
 			}
 		}
+		if (!bestNp.isPlaying) audio.pause()
+
+		return true
 	}
 
 	const ICON_PLAY =
@@ -346,21 +350,6 @@ async function init() {
 		}
 	}
 
-	function togglePlay() {
-		if (currentIndex === -1 && trackIds.length > 0) {
-			playTrack(0)
-			return
-		}
-		if (isPlaying) {
-			audio.pause()
-			isPlaying = false
-		} else {
-			audio.play()
-			isPlaying = true
-		}
-		updatePlayButton()
-	}
-
 	// ── audio events ───────────────────────────────────────────────────────
 
 	audio.addEventListener('ended', () => {
@@ -389,7 +378,6 @@ async function init() {
 		if ('mediaSession' in navigator) {
 			navigator.mediaSession.playbackState = 'playing'
 		}
-		broadcastPlayback(true)
 	})
 
 	audio.addEventListener('pause', () => {
@@ -398,7 +386,6 @@ async function init() {
 		if ('mediaSession' in navigator) {
 			navigator.mediaSession.playbackState = 'paused'
 		}
-		broadcastPlayback(false)
 	})
 
 	// ── Media Session action handlers ──────────────────────────────────────
@@ -429,23 +416,42 @@ async function init() {
 
 	// ── controls ───────────────────────────────────────────────────────────
 
-	playBtn.addEventListener('click', togglePlay)
+	playBtn.addEventListener('click', () => {
+		if (currentIndex === -1 && trackIds.length > 0) {
+			playTrack(0)
+			return
+		}
+		if (isPlaying) {
+			audio.pause()
+			isPlaying = false
+		} else {
+			audio.play()
+			isPlaying = true
+		}
+		updatePlayButton()
+		broadcastPlayback()
+	})
 
 	syncBtn.addEventListener('click', () => {
 		isSyncing = !isSyncing
 		updateSyncButton()
-		broadcastPlayback(isPlaying)
-		if (isSyncing) void trySyncToPeer(realtime.getPeers())
+		if (isSyncing) {
+			trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
+				if (!syncedToPeer) broadcastPlayback()
+			})
+		}
 	})
 
 	prevBtn.addEventListener('click', () => {
 		if (trackIds.length === 0) return
-		playTrack(currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1)
+		playTrack(currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1).then(
+			broadcastPlayback
+		)
 	})
 
 	nextBtn.addEventListener('click', () => {
 		if (trackIds.length === 0) return
-		playTrack((currentIndex + 1) % trackIds.length)
+		playTrack((currentIndex + 1) % trackIds.length).then(broadcastPlayback)
 	})
 
 	var wasPlayingWhenStartedSeeking = false
@@ -460,10 +466,13 @@ async function init() {
 		if (trackIds.length == 0) return
 		audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
 		if (audio.currentTime >= audio.duration) {
-			playTrack((currentIndex + 1) % trackIds.length)
+			playTrack((currentIndex + 1) % trackIds.length).then(broadcastPlayback)
+		} else {
+			broadcastPlayback()
 		}
 	}
-	progressBar.addEventListener('change', onSeekEnd)
+	progressBar.addEventListener('pointerup', onSeekEnd)
+	progressBar.addEventListener('pointercancel', onSeekEnd)
 
 	const seek = throttleWithTrailing(() => {
 		audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
