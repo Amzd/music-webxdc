@@ -505,8 +505,11 @@ async function init() {
 	 * @param {File} file
 	 */
 	async function sendFile(file) {
-		const id = crypto.randomUUID()
 		const lastModified = file.lastModified || Date.now()
+
+		const currentState = realtime.getState() ?? { files: [], nowPlaying: null }
+		const existing = currentState.files.find((f) => f.name === file.name)
+		const id = existing ? existing.id : crypto.randomUUID()
 
 		/** @satisfies {import('./lib/validate-payload').FileMeta} */
 		const meta = {
@@ -518,7 +521,10 @@ async function init() {
 			pending: [],
 		}
 
-		await db.files.add(meta)
+		if (existing) {
+			await db.chunks.where('file').equals(id).delete()
+		}
+		await db.files.put(meta)
 
 		const chunkCount = Math.ceil(file.size / CHUNK_SIZE)
 		for (let i = 0; i < chunkCount; i++) {
@@ -527,8 +533,10 @@ async function init() {
 			await db.chunks.add({ file: id, id: i, blob: file.slice(start, end) })
 		}
 
-		const currentState = realtime.getState() ?? { files: [], nowPlaying: null }
-		realtime.setState({ ...currentState, files: [...currentState.files, meta] })
+		const updatedFiles = existing
+			? currentState.files.map((f) => (f.id === id ? meta : f))
+			: [...currentState.files, meta]
+		realtime.setState({ ...currentState, files: updatedFiles })
 		refreshPlaylist([meta])
 	}
 
