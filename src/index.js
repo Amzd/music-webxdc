@@ -338,14 +338,17 @@ async function init() {
 		playTrack((currentIndex + 1) % trackIds.length)
 	})
 
+	var wasPlayingWhenStartedSeeking = false
 	progressBar.addEventListener('pointerdown', () => {
 		isSeeking = true
+		wasPlayingWhenStartedSeeking = !audio.paused
 	})
 
 	const onSeekEnd = () => {
 		if (!isSeeking) return
 		isSeeking = false
-		if (audio.ended && trackIds.length > 0) {
+		if (trackIds.length == 0) return
+		if (audio.currentTime >= audio.duration) {
 			playTrack((currentIndex + 1) % trackIds.length)
 		}
 	}
@@ -356,6 +359,8 @@ async function init() {
 	progressBar.addEventListener('input', () => {
 		if (!isFinite(audio.duration)) return
 		audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
+		if (wasPlayingWhenStartedSeeking && audio.paused && progressBar.value < 100)
+			audio.play()
 	})
 
 	// ── upload ─────────────────────────────────────────────────────────────
@@ -439,8 +444,7 @@ async function init() {
 	}
 
 	/**
-	 * Tries to find a peer that has the given chunk. Returns null if none
-	 * found.
+	 * Tries to find a peer that has the given chunk. Returns null if none found.
 	 *
 	 * @param {import('./lib/validate-payload').FileMeta} file
 	 * @param {number} chunkId
