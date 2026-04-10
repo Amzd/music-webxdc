@@ -722,7 +722,15 @@ async function init() {
         applyPlaylistName(newName)
         const state = realtime.getState() ?? { files: [], nowPlaying: null }
         realtime.setState({ ...state, playlistName: newName })
-        window.webxdc.sendUpdate({ payload: null, document: newName }, '')
+        const songCount = state.files.length
+        window.webxdc.sendUpdate(
+            {
+                payload: null,
+                document: newName,
+                summary: `${songCount} song${songCount === 1 ? '' : 's'}`,
+            },
+            ''
+        )
     })
 
     uploadBtn.addEventListener('click', () => fileInput.click())
