@@ -659,10 +659,14 @@ async function init() {
             trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
                 if (!syncedToPeer) {
                     broadcastPlayback()
+                    const songCount = (
+                        realtime.getState() ?? { files: [] }
+                    ).files.length
                     window.webxdc.sendUpdate(
                         {
                             payload: null,
                             info: `${window.webxdc.selfName} started a jam!`,
+                            summary: `${songCount} song${songCount === 1 ? '' : 's'}`,
                         },
                         ''
                     )
