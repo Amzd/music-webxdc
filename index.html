@@ -320,6 +320,17 @@
                 flex-shrink: 0;
             }
 
+            #player::after {
+                content: '';
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: env(safe-area-inset-bottom);
+                background: var(--surface);
+                pointer-events: none;
+            }
+
             #now-playing {
                 font-size: 0.9rem;
                 overflow: hidden;
