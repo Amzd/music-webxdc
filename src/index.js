@@ -411,10 +411,14 @@ async function init() {
         item.className = 'playlist-item'
         item.type = 'button'
 
+        const artworkWrap = document.createElement('div')
+        artworkWrap.className = 'track-artwork'
+
         const artworkImg = document.createElement('img')
-        artworkImg.className = 'track-artwork'
         artworkImg.alt = ''
         artworkImg.hidden = true
+
+        artworkWrap.appendChild(artworkImg)
 
         const trackText = document.createElement('div')
         trackText.className = 'track-text'
@@ -428,7 +432,7 @@ async function init() {
 
         trackText.appendChild(nameSpan)
         trackText.appendChild(subtitleSpan)
-        item.appendChild(artworkImg)
+        item.appendChild(artworkWrap)
         item.appendChild(trackText)
         trackSpans.set(item, {
             nameEl: nameSpan,
