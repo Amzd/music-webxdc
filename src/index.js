@@ -76,6 +76,17 @@ async function init() {
     const trackElements = new Map()
 
     /**
+     * Cache of name/subtitle span references per playlist button element, to
+     * avoid repeated querySelector calls on every update.
+     *
+     * @type {WeakMap<
+     *     HTMLButtonElement,
+     *     { nameEl: HTMLElement; subtitleEl: HTMLElement }
+     * >}
+     */
+    const trackSpans = new WeakMap()
+
+    /**
      * Cache of parsed metadata per file ID. Stores both the raw common tags and
      * the pre-computed artwork data URLs.
      *
@@ -289,12 +300,13 @@ async function init() {
      */
     function updateTrackElement(el, file) {
         const pct = getDownloadProgress(file)
-        const nameEl = /** @type {HTMLElement} */ (
-            el.querySelector('.track-name')
-        )
-        const subtitleEl = /** @type {HTMLElement} */ (
-            el.querySelector('.track-subtitle')
-        )
+        const spans = trackSpans.get(el)
+        const nameEl = spans
+            ? spans.nameEl
+            : /** @type {HTMLElement} */ (el.querySelector('.track-name'))
+        const subtitleEl = spans
+            ? spans.subtitleEl
+            : /** @type {HTMLElement} */ (el.querySelector('.track-subtitle'))
         if (pct < 100) {
             nameEl.textContent = pct + '% \u2014 ' + file.name
             el.classList.add('downloading')
@@ -345,6 +357,7 @@ async function init() {
 
         item.appendChild(nameSpan)
         item.appendChild(subtitleSpan)
+        trackSpans.set(item, { nameEl: nameSpan, subtitleEl: subtitleSpan })
 
         updateTrackElement(item, file)
 
