@@ -75,6 +75,10 @@ async function init() {
     /** @type {Map<string, HTMLButtonElement>} */
     const trackElements = new Map()
 
+    /** Map from file ID to the addedAt timestamp used for playlist ordering. */
+    /** @type {Map<string, number>} */
+    const trackAddedAt = new Map()
+
     /**
      * Cache of name/subtitle/artwork element references per playlist button
      * element, to avoid repeated querySelector calls on every update.
@@ -524,8 +528,31 @@ async function init() {
             })
         })
 
-        playlist.appendChild(row)
-        trackIds.push(file.id)
+        const addedAt = file.addedAt ?? 0
+        trackAddedAt.set(file.id, addedAt)
+
+        // Insert at the correct sorted position (ascending addedAt).
+        let insertIndex = trackIds.length
+        for (let i = 0; i < trackIds.length; i++) {
+            if ((trackAddedAt.get(trackIds[i]) ?? 0) > addedAt) {
+                insertIndex = i
+                break
+            }
+        }
+
+        if (insertIndex === trackIds.length) {
+            playlist.appendChild(row)
+            trackIds.push(file.id)
+        } else {
+            const refRow = trackElements
+                .get(trackIds[insertIndex])
+                ?.closest('.playlist-row')
+            playlist.insertBefore(row, refRow ?? null)
+            trackIds.splice(insertIndex, 0, file.id)
+            if (currentIndex !== -1 && insertIndex <= currentIndex) {
+                currentIndex++
+            }
+        }
         trackElements.set(file.id, item)
     }
 
@@ -536,7 +563,10 @@ async function init() {
      * @param {import('./lib/validate-payload').FileMeta[]} files
      */
     function refreshPlaylist(files) {
-        for (const file of files) {
+        const sorted = [...files].sort(
+            (a, b) => (a.addedAt ?? 0) - (b.addedAt ?? 0)
+        )
+        for (const file of sorted) {
             if (file.size <= 0) continue
             const el = trackElements.get(file.id)
             if (!el) {
@@ -559,6 +589,7 @@ async function init() {
             el.closest('.playlist-row')?.remove()
             trackElements.delete(fileId)
         }
+        trackAddedAt.delete(fileId)
 
         const index = trackIds.indexOf(fileId)
         if (index !== -1) {
@@ -997,6 +1028,7 @@ async function init() {
             type: file.type,
             pending: [],
             uploadedBy: window.webxdc.selfName,
+            addedAt: existing?.addedAt ?? Date.now(),
         }
 
         if (existing) {
@@ -1299,6 +1331,7 @@ async function init() {
     // ── startup ────────────────────────────────────────────────────────────
 
     const allFiles = await db.files.toArray()
+    allFiles.sort((a, b) => (a.addedAt ?? 0) - (b.addedAt ?? 0))
     realtime.setState({ files: allFiles, nowPlaying: null })
     realtime.connect()
     window.addEventListener('beforeunload', () => realtime.disconnect())
