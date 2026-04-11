@@ -796,6 +796,17 @@ async function init() {
 
     // ── upload ─────────────────────────────────────────────────────────────
 
+    const sendSongCountUpdate = debounce(() => {
+        const songCount = (realtime.getState() ?? { files: [] }).files.length
+        window.webxdc.sendUpdate(
+            {
+                payload: null,
+                summary: `${songCount} song${songCount === 1 ? '' : 's'}`,
+            },
+            ''
+        )
+    }, 10_000)
+
     titleEl.addEventListener('click', async () => {
         const newName = await showRenamePrompt()
         if (!newName || newName === playlistName || newName.length > 100) return
@@ -874,6 +885,7 @@ async function init() {
             : [...currentState.files, meta]
         realtime.setState({ ...currentState, files: updatedFiles })
         refreshPlaylist([meta])
+        sendSongCountUpdate()
     }
 
     // ── realtime sync ──────────────────────────────────────────────────────
@@ -1141,6 +1153,17 @@ async function init() {
     updateSyncButton()
     refreshPlaylist(allFiles)
     setTimeout(syncChunks, 100)
+}
+
+function debounce(fn, delay) {
+    let timeout = null
+    return function (...args) {
+        if (timeout) clearTimeout(timeout)
+        timeout = setTimeout(() => {
+            timeout = null
+            fn(...args)
+        }, delay)
+    }
 }
 
 function throttleWithTrailing(fn, delay) {
