@@ -659,9 +659,8 @@ async function init() {
             trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
                 if (!syncedToPeer) {
                     broadcastPlayback()
-                    const songCount = (
-                        realtime.getState() ?? { files: [] }
-                    ).files.length
+                    const songCount = (realtime.getState() ?? { files: [] })
+                        .files.length
                     window.webxdc.sendUpdate(
                         {
                             payload: null,
@@ -672,6 +671,8 @@ async function init() {
                     )
                 }
             })
+        } else {
+            lastSync = 0
         }
     })
 
@@ -697,14 +698,18 @@ async function init() {
         if (!isSeeking) return
         isSeeking = false
         if (trackIds.length == 0) return
-        audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
-        if (audio.currentTime >= audio.duration) {
-            playTrack((currentIndex + 1) % trackIds.length).then(
-                broadcastPlayback
-            )
-        } else {
-            broadcastPlayback()
-        }
+        setTimeout(() => {
+            // make sure seek finished
+            audio.currentTime =
+                (Number(progressBar.value) / 100) * audio.duration
+            if (audio.currentTime >= audio.duration) {
+                playTrack((currentIndex + 1) % trackIds.length).then(
+                    broadcastPlayback
+                )
+            } else {
+                broadcastPlayback()
+            }
+        }, 310)
     }
     progressBar.addEventListener('pointerup', onSeekEnd)
     progressBar.addEventListener('pointercancel', onSeekEnd)
