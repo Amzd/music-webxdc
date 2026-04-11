@@ -76,12 +76,16 @@ async function init() {
     const trackElements = new Map()
 
     /**
-     * Cache of name/subtitle span references per playlist button element, to
-     * avoid repeated querySelector calls on every update.
+     * Cache of name/subtitle/artwork element references per playlist button
+     * element, to avoid repeated querySelector calls on every update.
      *
      * @type {WeakMap<
      *     HTMLButtonElement,
-     *     { nameEl: HTMLElement; subtitleEl: HTMLElement }
+     *     {
+     *         nameEl: HTMLElement
+     *         subtitleEl: HTMLElement
+     *         artworkEl: HTMLImageElement
+     *     }
      * >}
      */
     const trackSpans = new WeakMap()
@@ -99,6 +103,62 @@ async function init() {
      * >}
      */
     const metadataCache = new Map()
+
+    /**
+     * In-progress or completed artwork load promises, keyed by file ID. Stored
+     * as a promise so concurrent calls for the same track share a single load.
+     *
+     * @type {Map<string, Promise<void>>}
+     */
+    const artworkLoading = new Map()
+
+    /**
+     * Parses and displays album artwork for a fully-downloaded track. Uses the
+     * shared metadataCache so playback and list share one parse.
+     *
+     * @param {string} fileId
+     * @param {HTMLImageElement} imgEl
+     */
+    function loadArtworkForTrack(fileId, imgEl) {
+        if (artworkLoading.has(fileId)) return
+        const promise = (async () => {
+            try {
+                if (!metadataCache.has(fileId)) {
+                    const chunks = await db.chunks
+                        .where('file')
+                        .equals(fileId)
+                        .sortBy('id')
+                    if (!chunks.length) return
+                    const blob = new Blob(
+                        chunks.map((c) => c.blob),
+                        { type: 'audio/mpeg' }
+                    )
+                    const { common } = await parseBlob(blob)
+                    const artwork = await Promise.all(
+                        (common?.picture ?? []).map(async (pic) => {
+                            const dataUrl = await blobToDataURL(
+                                new Blob([pic.data], { type: pic.format })
+                            )
+                            return /** @type {MediaImage} */ ({
+                                src: dataUrl,
+                                type: pic.format,
+                            })
+                        })
+                    )
+                    metadataCache.set(fileId, { common, artwork })
+                }
+                const cached = metadataCache.get(fileId)
+                const firstArtwork = cached?.artwork?.[0]
+                if (firstArtwork?.src) {
+                    imgEl.src = firstArtwork.src
+                    imgEl.hidden = false
+                }
+            } catch (err) {
+                console.warn('Failed to load artwork for', fileId, err)
+            }
+        })()
+        artworkLoading.set(fileId, promise)
+    }
 
     const PLAYLIST_NAME_KEY = 'playlistName'
     let playlistName = localStorage.getItem(PLAYLIST_NAME_KEY) ?? 'Music'
@@ -313,6 +373,9 @@ async function init() {
         } else {
             nameEl.textContent = file.name
             el.classList.remove('downloading')
+            if (spans?.artworkEl) {
+                loadArtworkForTrack(file.id, spans.artworkEl)
+            }
         }
         if (file.uploadedBy) {
             subtitleEl.textContent = 'Shared by ' + file.uploadedBy
@@ -348,6 +411,14 @@ async function init() {
         item.className = 'playlist-item'
         item.type = 'button'
 
+        const artworkImg = document.createElement('img')
+        artworkImg.className = 'track-artwork'
+        artworkImg.alt = ''
+        artworkImg.hidden = true
+
+        const trackText = document.createElement('div')
+        trackText.className = 'track-text'
+
         const nameSpan = document.createElement('span')
         nameSpan.className = 'track-name'
 
@@ -355,9 +426,15 @@ async function init() {
         subtitleSpan.className = 'track-subtitle'
         subtitleSpan.hidden = true
 
-        item.appendChild(nameSpan)
-        item.appendChild(subtitleSpan)
-        trackSpans.set(item, { nameEl: nameSpan, subtitleEl: subtitleSpan })
+        trackText.appendChild(nameSpan)
+        trackText.appendChild(subtitleSpan)
+        item.appendChild(artworkImg)
+        item.appendChild(trackText)
+        trackSpans.set(item, {
+            nameEl: nameSpan,
+            subtitleEl: subtitleSpan,
+            artworkEl: artworkImg,
+        })
 
         updateTrackElement(item, file)
 
