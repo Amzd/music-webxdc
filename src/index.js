@@ -202,8 +202,10 @@ async function init() {
     const ICON_SYNC =
         '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>'
 
-    /** Reflects the current isSyncing state and peer count on the button
-element. */
+    /**
+     * Reflects the current isSyncing state and peer count on the button
+     * element.
+     */
     function updateSyncButton() {
         const peerCount = realtime.getPeers().length + 1
         syncBtn.innerHTML =
@@ -902,11 +904,11 @@ element. */
     /** Milliseconds before a chunk request is considered timed-out. */
     const CHUNK_REQUEST_TIMEOUT_MS = 10_000
     /** Poll interval while a chunk request is in flight. */
-    const SYNC_POLL_ACTIVE_MS = 10
+    const SYNC_POLL_ACTIVE_MS = 50
     /** Poll interval while no chunk request is in flight. */
-    const SYNC_POLL_IDLE_MS = 100
+    const SYNC_POLL_IDLE_MS = 1000
     /** Debounce window for batching state flushes after chunk receipt (ms). */
-    const STATE_FLUSH_DEBOUNCE_MS = 100
+    const STATE_FLUSH_DEBOUNCE_MS = 1000
 
     /** @type {ReturnType<typeof setTimeout> | null} */
     let flushTimer = null
