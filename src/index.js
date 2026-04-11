@@ -777,14 +777,10 @@ async function init() {
             // seekforward, or seekto so that iOS shows next/prev track buttons
             // instead of the default skip-10-seconds controls.
             navigator.mediaSession.setActionHandler('previoustrack', () => {
-                if (trackIds.length === 0) return
-                playTrack(
-                    currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1
-                )
+                playPrev()
             })
             navigator.mediaSession.setActionHandler('nexttrack', () => {
-                if (trackIds.length === 0) return
-                playTrack((currentIndex + 1) % trackIds.length)
+                playNext()
             })
         }
     })
@@ -801,6 +797,18 @@ async function init() {
      */
     function getSongCount(state) {
         return state?.files?.filter((f) => f.size > 0).length ?? 0
+    }
+
+    function playPrev() {
+        if (trackIds.length === 0) return
+        playTrack(
+            currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1
+        ).then(broadcastPlayback)
+    }
+
+    function playNext() {
+        if (trackIds.length === 0) return
+        playTrack((currentIndex + 1) % trackIds.length).then(broadcastPlayback)
     }
 
     /**
@@ -878,15 +886,11 @@ async function init() {
     })
 
     prevBtn.addEventListener('click', () => {
-        if (trackIds.length === 0) return
-        playTrack(
-            currentIndex <= 0 ? trackIds.length - 1 : currentIndex - 1
-        ).then(broadcastPlayback)
+        playPrev()
     })
 
     nextBtn.addEventListener('click', () => {
-        if (trackIds.length === 0) return
-        playTrack((currentIndex + 1) % trackIds.length).then(broadcastPlayback)
+        playNext()
     })
 
     var wasPlayingWhenStartedSeeking = false
