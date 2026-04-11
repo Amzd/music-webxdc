@@ -29,6 +29,8 @@ export type AppState = {
     files: Array<FileMeta>
     nowPlaying: NowPlaying | null
     playlistName?: string
+    /** Display name of the local user, broadcast so peers can show it. */
+    selfName?: string
 }
 
 export type PeerRequest = {
