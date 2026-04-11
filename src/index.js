@@ -530,18 +530,12 @@ async function init() {
 
         trackLastModified.set(file.id, file.lastModified)
 
-        if (insertIndex === trackIds.length) {
+        if (insertIndex >= trackIds.length) {
             playlist.appendChild(row)
             trackIds.push(file.id)
         } else {
-            const refRow = trackElements
-                .get(trackIds[insertIndex])
-                ?.closest('.playlist-row')
-            playlist.insertBefore(row, refRow ?? null)
+            playlist.insertBefore(row, playlist.children[insertIndex])
             trackIds.splice(insertIndex, 0, file.id)
-            if (currentIndex !== -1 && insertIndex <= currentIndex) {
-                currentIndex++
-            }
         }
         trackElements.set(file.id, item)
     }
@@ -556,28 +550,16 @@ async function init() {
         const sorted = [...files].sort(
             (a, b) => a.lastModified - b.lastModified
         )
-        // pos tracks our scan position in trackIds (which is also sorted by
-        // lastModified). Because we iterate `sorted` in the same order, we
-        // only need to advance pos forward, giving an O(n) merge instead of
-        // a binary search per insertion.
         let pos = 0
         for (const file of sorted) {
             if (file.size <= 0) continue
             const el = trackElements.get(file.id)
             if (!el) {
-                // Advance past existing tracks whose lastModified <= file.lastModified.
-                while (
-                    pos < trackIds.length &&
-                    (trackLastModified.get(trackIds[pos]) ?? 0) <=
-                        file.lastModified
-                ) {
-                    pos++
-                }
                 addTrackToPlaylist(file, pos)
-                pos++ // step over the track we just inserted
             } else {
                 updateTrackElement(el, file)
             }
+            pos++
         }
     }
 
