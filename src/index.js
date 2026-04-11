@@ -1008,7 +1008,6 @@ async function init() {
         }
     })
 
-
     /**
      * Stores a file as chunks in IndexedDB and advertises it to peers via
      * realtime state so they can pull it chunk by chunk.
