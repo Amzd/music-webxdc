@@ -6,6 +6,8 @@ export type FileMeta = {
     type: string
     /** Chunk indices still needed; empty when the file is fully available. */
     pending: Array<number>
+    /** Display name of the peer who uploaded this file. */
+    uploadedBy?: string
 }
 
 export type Chunk = {

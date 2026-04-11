@@ -76,6 +76,17 @@ async function init() {
     const trackElements = new Map()
 
     /**
+     * Cache of name/subtitle span references per playlist button element, to
+     * avoid repeated querySelector calls on every update.
+     *
+     * @type {WeakMap<
+     *     HTMLButtonElement,
+     *     { nameEl: HTMLElement; subtitleEl: HTMLElement }
+     * >}
+     */
+    const trackSpans = new WeakMap()
+
+    /**
      * Cache of parsed metadata per file ID. Stores both the raw common tags and
      * the pre-computed artwork data URLs.
      *
@@ -289,12 +300,25 @@ async function init() {
      */
     function updateTrackElement(el, file) {
         const pct = getDownloadProgress(file)
+        const spans = trackSpans.get(el)
+        const nameEl = spans
+            ? spans.nameEl
+            : /** @type {HTMLElement} */ (el.querySelector('.track-name'))
+        const subtitleEl = spans
+            ? spans.subtitleEl
+            : /** @type {HTMLElement} */ (el.querySelector('.track-subtitle'))
         if (pct < 100) {
-            el.textContent = pct + '% \u2014 ' + file.name
+            nameEl.textContent = pct + '% \u2014 ' + file.name
             el.classList.add('downloading')
         } else {
-            el.textContent = file.name
+            nameEl.textContent = file.name
             el.classList.remove('downloading')
+        }
+        if (file.uploadedBy) {
+            subtitleEl.textContent = 'Shared by ' + file.uploadedBy
+            subtitleEl.hidden = false
+        } else {
+            subtitleEl.hidden = true
         }
     }
 
@@ -323,6 +347,18 @@ async function init() {
         const item = document.createElement('button')
         item.className = 'playlist-item'
         item.type = 'button'
+
+        const nameSpan = document.createElement('span')
+        nameSpan.className = 'track-name'
+
+        const subtitleSpan = document.createElement('span')
+        subtitleSpan.className = 'track-subtitle'
+        subtitleSpan.hidden = true
+
+        item.appendChild(nameSpan)
+        item.appendChild(subtitleSpan)
+        trackSpans.set(item, { nameEl: nameSpan, subtitleEl: subtitleSpan })
+
         updateTrackElement(item, file)
 
         const menuBtn = document.createElement('button')
@@ -794,6 +830,7 @@ async function init() {
             size: file.size,
             type: file.type,
             pending: [],
+            uploadedBy: window.webxdc.selfName,
         }
 
         if (existing) {

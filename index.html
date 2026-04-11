@@ -185,26 +185,44 @@
                 border: none;
                 color: var(--text);
                 text-align: left;
-                padding: 14px 20px;
+                padding: 10px 20px;
                 font-size: 0.95rem;
                 cursor: pointer;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
                 overflow: hidden;
-                white-space: nowrap;
-                text-overflow: ellipsis;
             }
 
             .playlist-item:hover {
                 background: none;
             }
 
-            .playlist-item.active {
+            .playlist-item.active .track-name {
                 color: var(--accent);
                 font-weight: 600;
             }
 
-            .playlist-item.downloading {
+            .playlist-item.downloading .track-name {
                 color: var(--text-muted);
                 cursor: default;
+            }
+
+            .track-name {
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                width: 100%;
+            }
+
+            .track-subtitle {
+                font-size: 0.75rem;
+                color: var(--text-muted);
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                width: 100%;
+                margin-top: 2px;
             }
 
             .playlist-menu-btn {
@@ -369,17 +387,29 @@
                     aria-pressed="false"
                 ></button>
                 <button id="prev-btn" type="button" aria-label="Previous">
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
                         <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
                     </svg>
                 </button>
                 <button id="play-btn" type="button" disabled aria-label="Play">
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
                         <path d="M8 5v14l11-7z" />
                     </svg>
                 </button>
                 <button id="next-btn" type="button" aria-label="Next">
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
                         <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
                     </svg>
                 </button>
@@ -398,10 +428,22 @@
             </div>
         </footer>
 
-        <div id="rename-overlay" role="dialog" aria-modal="true" aria-labelledby="rename-label">
+        <div
+            id="rename-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rename-label"
+        >
             <div id="rename-dialog">
-                <label id="rename-label" for="rename-input">Playlist name</label>
-                <input id="rename-input" type="text" maxlength="100" autocomplete="off" />
+                <label id="rename-label" for="rename-input"
+                    >Playlist name</label
+                >
+                <input
+                    id="rename-input"
+                    type="text"
+                    maxlength="100"
+                    autocomplete="off"
+                />
                 <div id="rename-actions">
                     <button id="rename-cancel" type="button">Cancel</button>
                     <button id="rename-ok" type="button">OK</button>
