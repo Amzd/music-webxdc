@@ -732,7 +732,9 @@ async function init() {
     audio.addEventListener('ended', () => {
         if (isSeeking) return
         if (trackIds.length > 0) {
-            playTrack((currentIndex + 1) % trackIds.length)
+            playTrack((currentIndex + 1) % trackIds.length).then(() =>
+                broadcastPlayback(-1)
+            )
         }
     })
 
