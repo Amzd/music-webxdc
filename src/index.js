@@ -65,7 +65,7 @@ async function init() {
     let isPlaying = false
     let isSeeking = false
     /** Whether the user has enabled shared-playback sync with peers. */
-    let isSyncing = false
+    let isSyncing = true
     /** @type {string | null} */
     let currentObjectUrl = null
 
