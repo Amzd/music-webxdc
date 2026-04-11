@@ -528,17 +528,23 @@ async function init() {
             })
         })
 
+        // Files without addedAt (e.g. from older versions) default to 0,
+        // treating them as oldest so they sort stably before newer uploads.
         const addedAt = file.addedAt ?? 0
         trackAddedAt.set(file.id, addedAt)
 
-        // Insert at the correct sorted position (ascending addedAt).
-        let insertIndex = trackIds.length
-        for (let i = 0; i < trackIds.length; i++) {
-            if ((trackAddedAt.get(trackIds[i]) ?? 0) > addedAt) {
-                insertIndex = i
-                break
+        // Binary-search for the insertion point (ascending addedAt).
+        let lo = 0
+        let hi = trackIds.length
+        while (lo < hi) {
+            const mid = (lo + hi) >>> 1
+            if ((trackAddedAt.get(trackIds[mid]) ?? 0) <= addedAt) {
+                lo = mid + 1
+            } else {
+                hi = mid
             }
         }
+        const insertIndex = lo
 
         if (insertIndex === trackIds.length) {
             playlist.appendChild(row)
