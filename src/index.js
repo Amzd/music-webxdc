@@ -244,8 +244,11 @@ async function init() {
     /**
      * Pushes current playback position into the shared realtime state so peers
      * can see what is playing.
+     *
+     * @param actionTimeOverride Set to -1 if this should not be acted upon by
+     *   peers
      */
-    function broadcastPlayback() {
+    function broadcastPlayback(actionTimeOverride) {
         const state = realtime.getState() ?? { files: [], nowPlaying: null }
         const fileId =
             currentIndex >= 0 ? (trackIds[currentIndex] ?? null) : null
@@ -257,7 +260,7 @@ async function init() {
                       fileId,
                       isPlaying: isPlaying,
                       currentTime: audio.currentTime,
-                      actionTime: Date.now(),
+                      actionTime: actionTimeOverride ?? Date.now(),
                   }
                 : null,
         })
@@ -327,6 +330,7 @@ async function init() {
         }
         if (!bestNp.isPlaying) audio.pause()
 
+        broadcastPlayback(-1)
         return true
     }
 
