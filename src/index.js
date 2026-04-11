@@ -70,7 +70,8 @@ async function init() {
 
     /** @type {string[]} File IDs in playlist order. */
     let trackIds = []
-    let currendId = -1
+    /** @type {string | null} */
+    let currendId = null
     let isPlaying = false
     let isSeeking = false
     /** @type {string | null} */
@@ -250,8 +251,7 @@ async function init() {
      */
     function broadcastPlayback(actionTimeOverride) {
         const state = realtime.getState() ?? { files: [], nowPlaying: null }
-        const fileId =
-            currendId >= 0 ? (trackIds[currendId] ?? null) : null
+        const fileId = currendId
         realtime.setState({
             ...state,
             selfName: window.webxdc.selfName,
@@ -575,22 +575,20 @@ async function init() {
         if (index !== -1) {
             trackIds.splice(index, 1)
 
-            if (currendId === index) {
+            if (currendId === fileId) {
                 audio.pause()
                 if (currentObjectUrl) {
                     URL.revokeObjectURL(currentObjectUrl)
                     currentObjectUrl = null
                 }
                 isPlaying = false
-                currendId = -1
+                currendId = null
                 nowPlaying.textContent = 'Nothing playing'
                 playBtn.disabled = trackIds.length === 0
                 updatePlayButton()
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.playbackState = 'none'
                 }
-            } else if (currendId > index) {
-                currendId--
             }
         }
 
@@ -598,7 +596,7 @@ async function init() {
             emptyMsg.hidden = false
         }
 
-        highlightTrack(currendId)
+        highlightTrack(trackIds.indexOf(currendId))
     }
 
     /**
@@ -608,8 +606,7 @@ async function init() {
      * @param {string} fileId
      */
     async function deleteTrack(fileId) {
-        const wasCurrentTrack =
-            currendId >= 0 && trackIds[currendId] === fileId
+        const wasCurrentTrack = currendId === fileId
 
         removeTrackFromUI(fileId)
 
@@ -658,7 +655,7 @@ async function init() {
         if (!id) return
 
         // Set currendId before backing out due to downloading so we can prioritize this track
-        currendId = index
+        currendId = id
 
         // Don't attempt playback if the track is still downloading.
         const el = trackElements.get(id)
@@ -741,7 +738,7 @@ async function init() {
     audio.addEventListener('ended', () => {
         if (isSeeking) return
         if (trackIds.length > 0) {
-            playTrack((currendId + 1) % trackIds.length).then(() =>
+            playTrack((trackIds.indexOf(currendId) + 1) % trackIds.length).then(() =>
                 broadcastPlayback(-1)
             )
         }
@@ -793,13 +790,12 @@ async function init() {
             // instead of the default skip-10-seconds controls.
             navigator.mediaSession.setActionHandler('previoustrack', () => {
                 if (trackIds.length === 0) return
-                playTrack(
-                    currendId <= 0 ? trackIds.length - 1 : currendId - 1
-                )
+                const ci = trackIds.indexOf(currendId)
+                playTrack(ci <= 0 ? trackIds.length - 1 : ci - 1)
             })
             navigator.mediaSession.setActionHandler('nexttrack', () => {
                 if (trackIds.length === 0) return
-                playTrack((currendId + 1) % trackIds.length)
+                playTrack((trackIds.indexOf(currendId) + 1) % trackIds.length)
             })
         }
     })
@@ -861,7 +857,7 @@ async function init() {
     }
 
     playBtn.addEventListener('click', () => {
-        if (currendId === -1 && trackIds.length > 0) {
+        if (currendId === null && trackIds.length > 0) {
             playTrack(0)
             return
         }
@@ -989,14 +985,13 @@ async function init() {
 
     prevBtn.addEventListener('click', () => {
         if (trackIds.length === 0) return
-        playTrack(
-            currendId <= 0 ? trackIds.length - 1 : currendId - 1
-        ).then(broadcastPlayback)
+        const ci = trackIds.indexOf(currendId)
+        playTrack(ci <= 0 ? trackIds.length - 1 : ci - 1).then(broadcastPlayback)
     })
 
     nextBtn.addEventListener('click', () => {
         if (trackIds.length === 0) return
-        playTrack((currendId + 1) % trackIds.length).then(broadcastPlayback)
+        playTrack((trackIds.indexOf(currendId) + 1) % trackIds.length).then(broadcastPlayback)
     })
 
     var wasPlayingWhenStartedSeeking = false
@@ -1014,7 +1009,7 @@ async function init() {
             audio.currentTime =
                 (Number(progressBar.value) / 100) * audio.duration
             if (audio.currentTime >= audio.duration) {
-                playTrack((currendId + 1) % trackIds.length).then(
+                playTrack((trackIds.indexOf(currendId) + 1) % trackIds.length).then(
                     broadcastPlayback
                 )
             } else {
