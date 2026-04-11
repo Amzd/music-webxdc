@@ -897,8 +897,17 @@ async function init() {
     })
 
     const onSeekEnd = () => {
-        if (!isSeeking) return
         isSeeking = false
+    }
+    progressBar.addEventListener('pointerup', onSeekEnd)
+    progressBar.addEventListener('pointercancel', onSeekEnd)
+
+    // The 'change' event fires after the value is committed for both a click
+    // and the end of a drag, guaranteeing progressBar.value holds the final
+    // position.  Using 'pointerup'/'pointercancel' was unreliable on some
+    // platforms because those events could fire before the range value was
+    // updated, causing the wrong position to be broadcast to peers.
+    progressBar.addEventListener('change', () => {
         if (trackIds.length == 0) return
         setTimeout(() => {
             // make sure seek finished
@@ -912,9 +921,7 @@ async function init() {
                 broadcastPlayback()
             }
         }, 310)
-    }
-    progressBar.addEventListener('pointerup', onSeekEnd)
-    progressBar.addEventListener('pointercancel', onSeekEnd)
+    })
 
     const seek = throttleWithTrailing(() => {
         audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
