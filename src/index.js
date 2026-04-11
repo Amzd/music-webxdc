@@ -389,14 +389,12 @@ async function init() {
                 chunks.map((c) => c.blob),
                 { type: 'audio/mpeg' }
             )
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = file.name
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            setTimeout(() => URL.revokeObjectURL(url), 100)
+            window.webxdc.sendToChat({
+                file: {
+                    name: file.name,
+                    blob,
+                },
+            })
         })
 
         playlist.appendChild(row)
