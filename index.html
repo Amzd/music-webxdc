@@ -403,6 +403,35 @@
                 height: 4px;
                 cursor: pointer;
             }
+
+            /* ── drag-and-drop overlay ── */
+
+            #drop-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                z-index: 300;
+                background: rgba(0, 0, 0, 0.7);
+                align-items: center;
+                justify-content: center;
+                pointer-events: none;
+            }
+
+            #drop-overlay.active {
+                display: flex;
+            }
+
+            #drop-overlay-inner {
+                border: 3px dashed var(--accent);
+                border-radius: 16px;
+                color: var(--accent);
+                font-size: 1.1rem;
+                font-weight: 600;
+                padding: 40px 48px;
+                text-align: center;
+                pointer-events: none;
+                user-select: none;
+            }
         </style>
     </head>
     <body>
@@ -501,6 +530,10 @@
                     <button id="rename-ok" type="button">OK</button>
                 </div>
             </div>
+        </div>
+
+        <div id="drop-overlay" aria-hidden="true">
+            <div id="drop-overlay-inner">Drop here to add to playlist</div>
         </div>
 
         <script type="module" src="src/index.js"></script>

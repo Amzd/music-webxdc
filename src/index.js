@@ -58,6 +58,9 @@ async function init() {
     const renameCancel = /** @type {HTMLButtonElement} */ (
         document.getElementById('rename-cancel')
     )
+    const dropOverlay = /** @type {HTMLElement} */ (
+        document.getElementById('drop-overlay')
+    )
 
     /** @type {string[]} File IDs in playlist order. */
     let trackIds = []
@@ -969,6 +972,42 @@ async function init() {
         }
         fileInput.value = ''
     })
+
+    // ── drag-and-drop ──────────────────────────────────────────────────────
+
+    /** @type {number} Counter to handle dragenter/dragleave across child elements. */
+    let dragDepth = 0
+
+    document.addEventListener('dragenter', (e) => {
+        e.preventDefault()
+        dragDepth++
+        dropOverlay.classList.add('active')
+    })
+
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault()
+    })
+
+    document.addEventListener('dragleave', () => {
+        dragDepth--
+        if (dragDepth <= 0) {
+            dragDepth = 0
+            dropOverlay.classList.remove('active')
+        }
+    })
+
+    document.addEventListener('drop', async (e) => {
+        e.preventDefault()
+        dragDepth = 0
+        dropOverlay.classList.remove('active')
+        const files = Array.from(e.dataTransfer?.files ?? [])
+        for (const file of files) {
+            if (!file.type.includes('audio') && !file.name.endsWith('.mp3'))
+                continue
+            await sendFile(file)
+        }
+    })
+
 
     /**
      * Stores a file as chunks in IndexedDB and advertises it to peers via
