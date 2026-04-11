@@ -772,7 +772,9 @@ async function init() {
             files: [],
             nowPlaying: null,
         }
-        const existing = currentState.files.find((f) => f.name === file.name)
+        const existing = currentState.files.find(
+            (f) => f.name === file.name && f.size > 0
+        )
         const id = existing ? existing.id : crypto.randomUUID()
 
         /** @satisfies {import('./lib/validate-payload').FileMeta} */
