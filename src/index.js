@@ -892,6 +892,7 @@ async function init() {
          *     | null
          *     | undefined} np
          *
+         *
          * @returns {{ label: string; playing: boolean } | null}
          */
         function trackInfo(np) {
@@ -948,7 +949,7 @@ async function init() {
         // Remote peers
         const peers = realtime.getPeers()
         for (const peer of peers) {
-            const peerName = peer.state?.selfName ?? peer.id
+            const peerName = peer.state?.selfName ?? 'Unknown'
             peersList.appendChild(
                 makePeerRow(peerName, trackInfo(peer.state?.nowPlaying))
             )
