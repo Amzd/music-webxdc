@@ -700,6 +700,19 @@ async function init() {
         }
     })
 
+    // ── helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the number of real songs in a state, excluding tombstones
+     * (entries with size 0 that mark deleted files).
+     *
+     * @param {{ files: Array<{ size: number }> }} state
+     * @returns {number}
+     */
+    function getSongCount(state) {
+        return state.files.filter((f) => f.size > 0).length
+    }
+
     // ── controls ───────────────────────────────────────────────────────────
 
     playBtn.addEventListener('click', () => {
@@ -725,8 +738,9 @@ async function init() {
             trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
                 if (!syncedToPeer) {
                     broadcastPlayback()
-                    const songCount = (realtime.getState() ?? { files: [] })
-                        .files.length
+                    const songCount = getSongCount(
+                        realtime.getState() ?? { files: [] }
+                    )
                     const onPlaylist =
                         playlistName == 'Music' ? '' : ` on "${playlistName}"`
                     window.webxdc.sendUpdate(
@@ -800,7 +814,7 @@ async function init() {
     // ── upload ─────────────────────────────────────────────────────────────
 
     const sendSongCountUpdate = debounce(() => {
-        const songCount = (realtime.getState() ?? { files: [] }).files.length
+        const songCount = getSongCount(realtime.getState() ?? { files: [] })
         window.webxdc.sendUpdate(
             {
                 payload: null,
@@ -816,7 +830,7 @@ async function init() {
         applyPlaylistName(newName)
         const state = realtime.getState() ?? { files: [], nowPlaying: null }
         realtime.setState({ ...state, playlistName: newName })
-        const songCount = state.files.length
+        const songCount = getSongCount(state)
         window.webxdc.sendUpdate(
             {
                 payload: null,
