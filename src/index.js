@@ -289,12 +289,24 @@ async function init() {
      */
     function updateTrackElement(el, file) {
         const pct = getDownloadProgress(file)
+        const nameEl = /** @type {HTMLElement} */ (
+            el.querySelector('.track-name')
+        )
+        const subtitleEl = /** @type {HTMLElement} */ (
+            el.querySelector('.track-subtitle')
+        )
         if (pct < 100) {
-            el.textContent = pct + '% \u2014 ' + file.name
+            nameEl.textContent = pct + '% \u2014 ' + file.name
             el.classList.add('downloading')
         } else {
-            el.textContent = file.name
+            nameEl.textContent = file.name
             el.classList.remove('downloading')
+        }
+        if (file.uploadedBy) {
+            subtitleEl.textContent = 'Shared by ' + file.uploadedBy
+            subtitleEl.hidden = false
+        } else {
+            subtitleEl.hidden = true
         }
     }
 
@@ -323,6 +335,17 @@ async function init() {
         const item = document.createElement('button')
         item.className = 'playlist-item'
         item.type = 'button'
+
+        const nameSpan = document.createElement('span')
+        nameSpan.className = 'track-name'
+
+        const subtitleSpan = document.createElement('span')
+        subtitleSpan.className = 'track-subtitle'
+        subtitleSpan.hidden = true
+
+        item.appendChild(nameSpan)
+        item.appendChild(subtitleSpan)
+
         updateTrackElement(item, file)
 
         const menuBtn = document.createElement('button')
@@ -659,9 +682,8 @@ async function init() {
             trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
                 if (!syncedToPeer) {
                     broadcastPlayback()
-                    const songCount = (
-                        realtime.getState() ?? { files: [] }
-                    ).files.length
+                    const songCount = (realtime.getState() ?? { files: [] })
+                        .files.length
                     window.webxdc.sendUpdate(
                         {
                             payload: null,
@@ -778,6 +800,7 @@ async function init() {
             size: file.size,
             type: file.type,
             pending: [],
+            uploadedBy: window.webxdc.selfName,
         }
 
         if (existing) {
