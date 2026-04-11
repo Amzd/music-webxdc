@@ -335,11 +335,17 @@ async function init() {
         menu.className = 'playlist-menu'
         menu.hidden = true
 
+        const downloadBtn = document.createElement('button')
+        downloadBtn.className = 'playlist-menu-item'
+        downloadBtn.type = 'button'
+        downloadBtn.textContent = 'Download'
+
         const deleteBtn = document.createElement('button')
-        deleteBtn.className = 'playlist-menu-delete'
+        deleteBtn.className = 'playlist-menu-item playlist-menu-delete'
         deleteBtn.type = 'button'
         deleteBtn.textContent = 'Delete'
 
+        menu.appendChild(downloadBtn)
         menu.appendChild(deleteBtn)
         row.appendChild(item)
         row.appendChild(menuBtn)
@@ -368,6 +374,29 @@ async function init() {
             e.stopPropagation()
             closeOpenMenu()
             deleteTrack(fileId)
+        })
+
+        downloadBtn.addEventListener('click', async (e) => {
+            e.stopPropagation()
+            closeOpenMenu()
+            if (item.classList.contains('downloading')) return
+            const chunks = await db.chunks
+                .where('file')
+                .equals(fileId)
+                .sortBy('id')
+            if (!chunks.length) return
+            const blob = new Blob(
+                chunks.map((c) => c.blob),
+                { type: 'audio/mpeg' }
+            )
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = file.name
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            setTimeout(() => URL.revokeObjectURL(url), 100)
         })
 
         playlist.appendChild(row)
@@ -659,9 +688,8 @@ async function init() {
             trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
                 if (!syncedToPeer) {
                     broadcastPlayback()
-                    const songCount = (
-                        realtime.getState() ?? { files: [] }
-                    ).files.length
+                    const songCount = (realtime.getState() ?? { files: [] })
+                        .files.length
                     window.webxdc.sendUpdate(
                         {
                             payload: null,
