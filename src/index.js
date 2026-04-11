@@ -202,7 +202,8 @@ async function init() {
     const ICON_SYNC =
         '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>'
 
-    /** Reflects the current isSyncing state and peer count on the button element. */
+    /** Reflects the current isSyncing state and peer count on the button
+element. */
     function updateSyncButton() {
         const peerCount = realtime.getPeers().length + 1
         syncBtn.innerHTML =
@@ -904,6 +905,26 @@ async function init() {
     const SYNC_POLL_ACTIVE_MS = 10
     /** Poll interval while no chunk request is in flight. */
     const SYNC_POLL_IDLE_MS = 100
+    /** Debounce window for batching state flushes after chunk receipt (ms). */
+    const STATE_FLUSH_DEBOUNCE_MS = 100
+
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    let flushTimer = null
+
+    /**
+     * Schedules a debounced broadcast of the current state and a playlist
+     * refresh. Batches rapid consecutive chunk receipts into a single update.
+     */
+    function scheduleStateFlush() {
+        if (flushTimer !== null) clearTimeout(flushTimer)
+        flushTimer = setTimeout(() => {
+            flushTimer = null
+            const state = realtime.getState() ?? { files: [], nowPlaying: null }
+            const files = state.files ?? []
+            realtime.setState({ ...state, files })
+            refreshPlaylist(files)
+        }, STATE_FLUSH_DEBOUNCE_MS)
+    }
 
     /**
      * Fisher-Yates shuffle - returns a new array.
@@ -1121,12 +1142,7 @@ async function init() {
                     currentRequest = null
                 }
 
-                const state = realtime.getState() ?? {
-                    files: [],
-                    nowPlaying: null,
-                }
-                realtime.setState({ ...state, files })
-                refreshPlaylist(files)
+                scheduleStateFlush()
             }
         }
     }
