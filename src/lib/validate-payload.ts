@@ -8,8 +8,6 @@ export type FileMeta = {
     pending: Array<number>
     /** Display name of the peer who uploaded this file. */
     uploadedBy?: string
-    /** Timestamp (ms) when this file was first added to the playlist. */
-    addedAt?: number
 }
 
 export type Chunk = {
