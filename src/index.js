@@ -65,7 +65,7 @@ async function init() {
     let isPlaying = false
     let isSeeking = false
     /** Whether the user has enabled shared-playback sync with peers. */
-    let isSyncing = false
+    let isSyncing = true
     /** @type {string | null} */
     let currentObjectUrl = null
 
@@ -671,6 +671,8 @@ async function init() {
                     )
                 }
             })
+        } else {
+            lastSync = 0
         }
     })
 
@@ -696,14 +698,18 @@ async function init() {
         if (!isSeeking) return
         isSeeking = false
         if (trackIds.length == 0) return
-        audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
-        if (audio.currentTime >= audio.duration) {
-            playTrack((currentIndex + 1) % trackIds.length).then(
-                broadcastPlayback
-            )
-        } else {
-            broadcastPlayback()
-        }
+        setTimeout(() => {
+            // make sure seek finished
+            audio.currentTime =
+                (Number(progressBar.value) / 100) * audio.duration
+            if (audio.currentTime >= audio.duration) {
+                playTrack((currentIndex + 1) % trackIds.length).then(
+                    broadcastPlayback
+                )
+            } else {
+                broadcastPlayback()
+            }
+        }, 310)
     }
     progressBar.addEventListener('pointerup', onSeekEnd)
     progressBar.addEventListener('pointercancel', onSeekEnd)
