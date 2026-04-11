@@ -776,12 +776,8 @@ async function init() {
             // Only register previoustrack/nexttrack — never register seekbackward,
             // seekforward, or seekto so that iOS shows next/prev track buttons
             // instead of the default skip-10-seconds controls.
-            navigator.mediaSession.setActionHandler('previoustrack', () => {
-                playPrev()
-            })
-            navigator.mediaSession.setActionHandler('nexttrack', () => {
-                playNext()
-            })
+            navigator.mediaSession.setActionHandler('previoustrack', playPrev)
+            navigator.mediaSession.setActionHandler('nexttrack', playNext)
         }
     })
 
@@ -885,13 +881,9 @@ async function init() {
         }
     })
 
-    prevBtn.addEventListener('click', () => {
-        playPrev()
-    })
+    prevBtn.addEventListener('click', playPrev)
 
-    nextBtn.addEventListener('click', () => {
-        playNext()
-    })
+    nextBtn.addEventListener('click', playNext)
 
     var wasPlayingWhenStartedSeeking = false
     progressBar.addEventListener('pointerdown', () => {
