@@ -412,7 +412,7 @@ async function init() {
      *
      * @param {import('./lib/validate-payload').FileMeta} file
      */
-    function addTrackToPlaylist(file) {
+    function addTrackToPlaylist(file, insertIndex) {
         emptyMsg.hidden = true
         const row = document.createElement('div')
         row.className = 'playlist-row'
@@ -530,21 +530,6 @@ async function init() {
 
         trackLastModified.set(file.id, file.lastModified)
 
-        // Binary-search for the insertion point (ascending lastModified).
-        let lo = 0
-        let hi = trackIds.length
-        while (lo < hi) {
-            const mid = (lo + hi) >>> 1
-            if (
-                (trackLastModified.get(trackIds[mid]) ?? 0) <= file.lastModified
-            ) {
-                lo = mid + 1
-            } else {
-                hi = mid
-            }
-        }
-        const insertIndex = lo
-
         if (insertIndex === trackIds.length) {
             playlist.appendChild(row)
             trackIds.push(file.id)
@@ -571,11 +556,25 @@ async function init() {
         const sorted = [...files].sort(
             (a, b) => a.lastModified - b.lastModified
         )
+        // pos tracks our scan position in trackIds (which is also sorted by
+        // lastModified). Because we iterate `sorted` in the same order, we
+        // only need to advance pos forward, giving an O(n) merge instead of
+        // a binary search per insertion.
+        let pos = 0
         for (const file of sorted) {
             if (file.size <= 0) continue
             const el = trackElements.get(file.id)
             if (!el) {
-                addTrackToPlaylist(file)
+                // Advance past existing tracks whose lastModified <= file.lastModified.
+                while (
+                    pos < trackIds.length &&
+                    (trackLastModified.get(trackIds[pos]) ?? 0) <=
+                        file.lastModified
+                ) {
+                    pos++
+                }
+                addTrackToPlaylist(file, pos)
+                pos++ // step over the track we just inserted
             } else {
                 updateTrackElement(el, file)
             }
