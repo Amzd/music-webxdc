@@ -713,6 +713,17 @@ async function init() {
         return state.files.filter((f) => f.size > 0).length
     }
 
+    /**
+     * Returns the webxdc summary string for a state, e.g. "3 songs".
+     *
+     * @param {{ files: Array<{ size: number }> }} state
+     * @returns {string}
+     */
+    function getSummary(state) {
+        const count = getSongCount(state)
+        return `${count} song${count === 1 ? '' : 's'}`
+    }
+
     // ── controls ───────────────────────────────────────────────────────────
 
     playBtn.addEventListener('click', () => {
@@ -738,16 +749,14 @@ async function init() {
             trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
                 if (!syncedToPeer) {
                     broadcastPlayback()
-                    const songCount = getSongCount(
-                        realtime.getState() ?? { files: [] }
-                    )
+                    const state = realtime.getState() ?? { files: [] }
                     const onPlaylist =
                         playlistName == 'Music' ? '' : ` on "${playlistName}"`
                     window.webxdc.sendUpdate(
                         {
                             payload: null,
                             info: `${window.webxdc.selfName} started a jam${onPlaylist}!`,
-                            summary: `${songCount} song${songCount === 1 ? '' : 's'}`,
+                            summary: getSummary(state),
                         },
                         ''
                     )
@@ -814,11 +823,10 @@ async function init() {
     // ── upload ─────────────────────────────────────────────────────────────
 
     const sendSongCountUpdate = debounce(() => {
-        const songCount = getSongCount(realtime.getState() ?? { files: [] })
         window.webxdc.sendUpdate(
             {
                 payload: null,
-                summary: `${songCount} song${songCount === 1 ? '' : 's'}`,
+                summary: getSummary(realtime.getState() ?? { files: [] }),
             },
             ''
         )
@@ -830,12 +838,11 @@ async function init() {
         applyPlaylistName(newName)
         const state = realtime.getState() ?? { files: [], nowPlaying: null }
         realtime.setState({ ...state, playlistName: newName })
-        const songCount = getSongCount(state)
         window.webxdc.sendUpdate(
             {
                 payload: null,
                 document: newName,
-                summary: `${songCount} song${songCount === 1 ? '' : 's'}`,
+                summary: getSummary(state),
             },
             ''
         )
