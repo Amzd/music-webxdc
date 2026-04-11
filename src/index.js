@@ -706,17 +706,17 @@ async function init() {
      * Returns the number of real songs in a state, excluding tombstones
      * (entries with size 0 that mark deleted files).
      *
-     * @param {{ files: Array<{ size: number }> }} state
+     * @param {?{ files: Array<{ size: number }> }} state
      * @returns {number}
      */
     function getSongCount(state) {
-        return state.files.filter((f) => f.size > 0).length
+        return state?.files?.filter((f) => f.size > 0).length ?? 0
     }
 
     /**
      * Returns the webxdc summary string for a state, e.g. "3 songs".
      *
-     * @param {{ files: Array<{ size: number }> }} state
+     * @param {?{ files: Array<{ size: number }> }} state
      * @returns {string}
      */
     function getSummary(state) {
@@ -749,7 +749,7 @@ async function init() {
             trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
                 if (!syncedToPeer) {
                     broadcastPlayback()
-                    const state = realtime.getState() ?? { files: [] }
+                    const state = realtime.getState()
                     const onPlaylist =
                         playlistName == 'Music' ? '' : ` on "${playlistName}"`
                     window.webxdc.sendUpdate(
@@ -826,7 +826,7 @@ async function init() {
         window.webxdc.sendUpdate(
             {
                 payload: null,
-                summary: getSummary(realtime.getState() ?? { files: [] }),
+                summary: getSummary(realtime.getState()),
             },
             ''
         )
