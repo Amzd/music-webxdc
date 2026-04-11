@@ -75,10 +75,6 @@ async function init() {
     /** @type {Map<string, HTMLButtonElement>} */
     const trackElements = new Map()
 
-    /** Map from file ID to lastModified timestamp used for playlist ordering. */
-    /** @type {Map<string, number>} */
-    const trackLastModified = new Map()
-
     /**
      * Cache of name/subtitle/artwork element references per playlist button
      * element, to avoid repeated querySelector calls on every update.
@@ -528,8 +524,6 @@ async function init() {
             })
         })
 
-        trackLastModified.set(file.id, file.lastModified)
-
         if (insertIndex >= trackIds.length) {
             playlist.appendChild(row)
             trackIds.push(file.id)
@@ -575,7 +569,6 @@ async function init() {
             el.closest('.playlist-row')?.remove()
             trackElements.delete(fileId)
         }
-        trackLastModified.delete(fileId)
 
         const index = trackIds.indexOf(fileId)
         if (index !== -1) {
