@@ -340,19 +340,128 @@
                 position: absolute !important;
                 left: 0 !important;
                 font-size: 1.1rem !important;
-                color: var(--text-muted) !important;
+                color: var(--accent) !important;
                 display: flex !important;
                 flex-direction: column !important;
                 align-items: center !important;
             }
 
-            #sync-btn[aria-pressed='true'] {
-                color: var(--accent) !important;
-            }
-
             .peer-count {
                 font-size: 0.65rem;
                 line-height: 1;
+            }
+
+            /* ── peers modal ── */
+
+            #peers-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.6);
+                z-index: 200;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #peers-overlay.open {
+                display: flex;
+            }
+
+            #peers-dialog {
+                background: var(--surface2);
+                border-radius: 12px;
+                padding: 20px;
+                width: min(320px, calc(100vw - 32px));
+                max-height: calc(100dvh - 64px);
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            #peers-title {
+                font-size: 0.95rem;
+                font-weight: 600;
+            }
+
+            #peers-list {
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            #peers-actions {
+                display: flex;
+                justify-content: flex-end;
+            }
+
+            #peers-close {
+                background: none;
+                border: 1px solid #555;
+                border-radius: 8px;
+                color: var(--text);
+                padding: 8px 16px;
+                font-size: 0.85rem;
+                cursor: pointer;
+            }
+
+            #peers-close:hover {
+                background: rgba(255, 255, 255, 0.06);
+            }
+
+            .peer-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            }
+
+            .peer-row:last-child {
+                border-bottom: none;
+            }
+
+            .peer-avatar {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background: var(--surface);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+
+            .peer-avatar svg {
+                width: 20px;
+                height: 20px;
+                color: var(--accent);
+            }
+
+            .peer-info {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .peer-name {
+                font-size: 0.9rem;
+                font-weight: 600;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+
+            .peer-track {
+                font-size: 0.78rem;
+                color: var(--text-muted);
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                margin-top: 2px;
+            }
+
+            .peer-track.playing {
+                color: var(--accent);
             }
 
             #player-controls button {
@@ -430,8 +539,8 @@
                 <button
                     id="sync-btn"
                     type="button"
-                    aria-label="Listen solo"
-                    aria-pressed="false"
+                    aria-label="Show listeners"
+                    aria-haspopup="dialog"
                 ></button>
                 <button
                     id="prev-btn"
@@ -479,6 +588,21 @@
                 <span id="duration">0:00</span>
             </div>
         </footer>
+
+        <div
+            id="peers-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="peers-title"
+        >
+            <div id="peers-dialog">
+                <span id="peers-title">Listeners</span>
+                <div id="peers-list"></div>
+                <div id="peers-actions">
+                    <button id="peers-close" type="button">Close</button>
+                </div>
+            </div>
+        </div>
 
         <div
             id="rename-overlay"

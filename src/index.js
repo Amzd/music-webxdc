@@ -31,6 +31,15 @@ async function init() {
     const syncBtn = /** @type {HTMLButtonElement} */ (
         document.getElementById('sync-btn')
     )
+    const peersOverlay = /** @type {HTMLElement} */ (
+        document.getElementById('peers-overlay')
+    )
+    const peersList = /** @type {HTMLElement} */ (
+        document.getElementById('peers-list')
+    )
+    const peersClose = /** @type {HTMLButtonElement} */ (
+        document.getElementById('peers-close')
+    )
     const prevBtn = /** @type {HTMLButtonElement} */ (
         document.getElementById('prev-btn')
     )
@@ -64,8 +73,6 @@ async function init() {
     let currentIndex = -1
     let isPlaying = false
     let isSeeking = false
-    /** Whether the user has enabled shared-playback sync with peers. */
-    let isSyncing = true
     /** @type {string | null} */
     let currentObjectUrl = null
 
@@ -236,24 +243,26 @@ async function init() {
 
     /**
      * Pushes current playback position into the shared realtime state so peers
-     * can see what is playing. Publishes null when sync is disabled so peers
-     * know this device is listening solo.
+     * can see what is playing.
+     *
+     * @param actionTimeOverride Set to -1 if this should not be acted upon by
+     *   peers
      */
-    function broadcastPlayback() {
+    function broadcastPlayback(actionTimeOverride) {
         const state = realtime.getState() ?? { files: [], nowPlaying: null }
         const fileId =
             currentIndex >= 0 ? (trackIds[currentIndex] ?? null) : null
         realtime.setState({
             ...state,
-            nowPlaying:
-                isSyncing && fileId
-                    ? {
-                          fileId,
-                          isPlaying: isPlaying,
-                          currentTime: audio.currentTime,
-                          actionTime: Date.now(),
-                      }
-                    : null,
+            selfName: window.webxdc.selfName,
+            nowPlaying: fileId
+                ? {
+                      fileId,
+                      isPlaying: isPlaying,
+                      currentTime: audio.currentTime,
+                      actionTime: actionTimeOverride ?? Date.now(),
+                  }
+                : null,
         })
     }
 
@@ -263,19 +272,13 @@ async function init() {
         '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>'
 
     /**
-     * Reflects the current isSyncing state and peer count on the button
-     * element.
+     * Reflects the current peer count on the button element.
      */
     function updateSyncButton() {
         const peerCount = realtime.getPeers().length + 1
         syncBtn.innerHTML =
-            (isSyncing ? ICON_SYNC : ICON_SOLO) +
-            `<span class="peer-count">${peerCount}</span>`
-        syncBtn.setAttribute(
-            'aria-label',
-            isSyncing ? 'Syncing with peers' : 'Listen solo'
-        )
-        syncBtn.setAttribute('aria-pressed', String(isSyncing))
+            ICON_SYNC + `<span class="peer-count">${peerCount}</span>`
+        syncBtn.setAttribute('aria-label', 'Show listeners')
     }
 
     let lastSync = 0
@@ -290,7 +293,6 @@ async function init() {
      * >[]} peers
      */
     async function trySyncToPeer(peers) {
-        if (!isSyncing) return
         const state = realtime.getState()
         const files = state?.files ?? []
         const myActionTime = state?.nowPlaying?.actionTime ?? 0
@@ -302,8 +304,6 @@ async function init() {
             const np = peer.state?.nowPlaying
             if (!np) continue
             if (np.actionTime <= myActionTime) continue
-            const file = files.find((f) => f.id === np.fileId)
-            if (!file || file.pending.length > 0) continue
             if (trackIds.indexOf(np.fileId) === -1) continue
             if (!bestNp || np.actionTime > bestNp.actionTime) bestNp = np
         }
@@ -330,6 +330,7 @@ async function init() {
         }
         if (!bestNp.isPlaying) audio.pause()
 
+        broadcastPlayback(-1)
         return true
     }
 
@@ -656,6 +657,9 @@ async function init() {
         const id = trackIds[index]
         if (!id) return
 
+        // Set currentIndex before backing out due to downloading so we can prioritize this track
+        currentIndex = index
+
         // Don't attempt playback if the track is still downloading.
         const el = trackElements.get(id)
         if (el?.classList.contains('downloading')) return
@@ -692,8 +696,6 @@ async function init() {
                 album: '',
             })
         }
-        // Set currentIndex before play() so the 'play' event sees the correct track.
-        currentIndex = index
         audio.play()
         isPlaying = true
         nowPlaying.textContent = file?.name ?? id
@@ -739,7 +741,9 @@ async function init() {
     audio.addEventListener('ended', () => {
         if (isSeeking) return
         if (trackIds.length > 0) {
-            playTrack((currentIndex + 1) % trackIds.length)
+            playTrack((currentIndex + 1) % trackIds.length).then(() =>
+                broadcastPlayback(-1)
+            )
         }
     })
 
@@ -837,7 +841,6 @@ async function init() {
      */
     function maybeSendStartedJam() {
         if (hasNotifiedAboutJam) return
-        if (!isSyncing) return
         const anyPeerPlaying = realtime
             .getPeers()
             .some((p) => p.state?.nowPlaying != null)
@@ -873,19 +876,115 @@ async function init() {
         broadcastPlayback()
     })
 
-    syncBtn.addEventListener('click', () => {
-        isSyncing = !isSyncing
-        updateSyncButton()
-        if (isSyncing) {
-            trySyncToPeer(realtime.getPeers()).then((syncedToPeer) => {
-                if (!syncedToPeer) {
-                    broadcastPlayback()
-                    maybeSendStartedJam()
-                }
-            })
-        } else {
-            lastSync = 0
+    /** @type {boolean} */
+    let peersModalOpen = false
+
+    /**
+     * Populates and opens the peers modal, showing each peer and what they are
+     * currently playing.
+     */
+    function showPeersModal() {
+        peersModalOpen = true
+        renderPeersList()
+        peersOverlay.classList.add('open')
+    }
+
+    function closePeersModal() {
+        peersModalOpen = false
+        peersOverlay.classList.remove('open')
+    }
+
+    /**
+     * Renders the list of peers (including the local user) into the modal. Safe
+     * to call at any time; no-ops when the modal is closed.
+     */
+    function renderPeersList() {
+        if (!peersModalOpen) return
+        const files = realtime.getState()?.files ?? []
+
+        /**
+         * Returns the track description for a nowPlaying entry, or null.
+         *
+         * @param {import('./lib/validate-payload').NowPlaying
+         *     | null
+         *     | undefined} np
+         *
+         *
+         * @returns {{ label: string; playing: boolean } | null}
+         */
+        function trackInfo(np) {
+            if (!np) return null
+            const name =
+                files.find((f) => f.id === np.fileId)?.name ?? np.fileId
+            return { label: name, playing: np.isPlaying }
         }
+
+        /**
+         * Creates a single peer row element.
+         *
+         * @param {string} name
+         * @param {{ label: string; playing: boolean } | null} info
+         *
+         * @returns {HTMLElement}
+         */
+        function makePeerRow(name, info) {
+            const row = document.createElement('div')
+            row.className = 'peer-row'
+
+            const avatar = document.createElement('div')
+            avatar.className = 'peer-avatar'
+            avatar.innerHTML = ICON_SOLO
+
+            const infoEl = document.createElement('div')
+            infoEl.className = 'peer-info'
+
+            const nameEl = document.createElement('div')
+            nameEl.className = 'peer-name'
+            nameEl.textContent = name
+
+            const trackEl = document.createElement('div')
+            trackEl.className = 'peer-track' + (info?.playing ? ' playing' : '')
+            trackEl.textContent = info
+                ? (info.playing ? '▶ ' : '⏸ ') + info.label
+                : 'Not playing'
+
+            infoEl.appendChild(nameEl)
+            infoEl.appendChild(trackEl)
+            row.appendChild(avatar)
+            row.appendChild(infoEl)
+            return row
+        }
+
+        peersList.innerHTML = ''
+
+        // Local user row
+        const myNp = realtime.getState()?.nowPlaying ?? null
+        peersList.appendChild(
+            makePeerRow(window.webxdc.selfName + ' (you)', trackInfo(myNp))
+        )
+
+        // Remote peers
+        const peers = realtime.getPeers()
+        for (const peer of peers) {
+            const peerName = peer.state?.selfName ?? 'Unknown'
+            peersList.appendChild(
+                makePeerRow(peerName, trackInfo(peer.state?.nowPlaying))
+            )
+        }
+    }
+
+    syncBtn.addEventListener('click', () => {
+        showPeersModal()
+    })
+
+    peersClose.addEventListener('click', closePeersModal)
+
+    peersOverlay.addEventListener('click', (e) => {
+        if (e.target === peersOverlay) closePeersModal()
+    })
+
+    peersOverlay.addEventListener('keydown', (e) => {
+        if (/** @type {KeyboardEvent} */ (e).key === 'Escape') closePeersModal()
     })
 
     prevBtn.addEventListener('click', () => {
@@ -1300,6 +1399,7 @@ async function init() {
             void syncFileList(peers)
             void trySyncToPeer(peers)
             updateSyncButton()
+            renderPeersList()
         },
         onPayload: (_deviceId, payload) => {
             void handlePayload(_deviceId, payload)
@@ -1310,7 +1410,11 @@ async function init() {
 
     const allFiles = await db.files.toArray()
     allFiles.sort((a, b) => a.lastModified - b.lastModified)
-    realtime.setState({ files: allFiles, nowPlaying: null })
+    realtime.setState({
+        files: allFiles,
+        nowPlaying: null,
+        selfName: window.webxdc.selfName,
+    })
     realtime.connect()
     window.addEventListener('beforeunload', () => realtime.disconnect())
     updateSyncButton()
