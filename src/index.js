@@ -724,10 +724,12 @@ async function init() {
                     broadcastPlayback()
                     const songCount = (realtime.getState() ?? { files: [] })
                         .files.length
+                    const onPlaylist =
+                        playlistName == 'Music' ? '' : ` on "${playlistName}"`
                     window.webxdc.sendUpdate(
                         {
                             payload: null,
-                            info: `${window.webxdc.selfName} started a jam!`,
+                            info: `${window.webxdc.selfName} started a jam${onPlaylist}!`,
                             summary: `${songCount} song${songCount === 1 ? '' : 's'}`,
                         },
                         ''
