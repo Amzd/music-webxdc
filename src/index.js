@@ -288,6 +288,18 @@ async function init() {
     let alertTimer = null
 
     /**
+     * Updates the now-playing display to show a song name.
+     * Returns without updating if an alert is currently being shown.
+     *
+     * @param {string} song
+     */
+    function showNowPlayingSong(song) {
+        if (alertTimer !== null) return
+        nowPlaying.classList.remove('alert')
+        nowPlaying.textContent = song
+    }
+
+    /**
      * Temporarily shows an alert message in the now-playing area for 2 seconds,
      * then restores the current track name. Cancels any in-progress alert.
      *
@@ -298,6 +310,7 @@ async function init() {
             clearTimeout(alertTimer)
             alertTimer = null
         }
+        nowPlaying.classList.add('alert')
         nowPlaying.textContent = text
         alertTimer = setTimeout(() => {
             alertTimer = null
@@ -305,9 +318,9 @@ async function init() {
                 const file = (realtime.getState()?.files ?? []).find(
                     (f) => f.id === currentId
                 )
-                nowPlaying.textContent = file?.name ?? currentId
+                showNowPlayingSong(file?.name ?? currentId)
             } else {
-                nowPlaying.textContent = 'Nothing playing'
+                showNowPlayingSong('Nothing playing')
             }
         }, 2000)
     }
@@ -615,8 +628,12 @@ async function init() {
                 }
                 isPlaying = false
                 currentId = null
+                if (alertTimer !== null) {
+                    clearTimeout(alertTimer)
+                    alertTimer = null
+                }
+                nowPlaying.classList.remove('alert')
                 nowPlaying.textContent = 'Nothing playing'
-                playBtn.disabled = trackIds.length === 0
                 updatePlayButton()
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.playbackState = 'none'
