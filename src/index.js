@@ -291,12 +291,12 @@ async function init() {
      * Updates the now-playing display to show a song name.
      * Returns without updating if an alert is currently being shown.
      *
-     * @param {string} song
+     * @param {string | null} song
      */
     function showNowPlayingSong(song) {
         if (alertTimer !== null) return
         nowPlaying.classList.remove('alert')
-        nowPlaying.textContent = song
+        nowPlaying.textContent = song ?? 'Nothing playing'
     }
 
     /**
@@ -318,9 +318,9 @@ async function init() {
                 const file = (realtime.getState()?.files ?? []).find(
                     (f) => f.id === currentId
                 )
-                showNowPlayingSong(file?.name ?? currentId)
+                showNowPlayingSong(file?.name)
             } else {
-                showNowPlayingSong('Nothing playing')
+                showNowPlayingSong(null)
             }
         }, 2000)
     }
@@ -632,8 +632,7 @@ async function init() {
                     clearTimeout(alertTimer)
                     alertTimer = null
                 }
-                nowPlaying.classList.remove('alert')
-                nowPlaying.textContent = 'Nothing playing'
+                showNowPlayingSong(null)
                 updatePlayButton()
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.playbackState = 'none'
@@ -744,8 +743,7 @@ async function init() {
         }
         audio.play()
         isPlaying = true
-        nowPlaying.textContent = file?.name ?? id
-        playBtn.disabled = false
+        showNowPlayingSong(file?.name ?? id)
         nextBtn.disabled = false
         prevBtn.disabled = false
         updatePlayButton()
