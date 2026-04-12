@@ -740,6 +740,7 @@ async function init() {
                 onend: handleAudioEnded,
                 onplay: handleAudioPlay,
                 onpause: handleAudioPause,
+                onseek: handleAudioSeek,
             })
         })
     }
@@ -884,6 +885,17 @@ async function init() {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = 'paused'
         }
+    }
+
+    function handleAudioSeek() {
+        // Don't overwrite the progress bar while the user is dragging it.
+        if (isSeeking || !howl) return
+        const duration = howl.duration()
+        if (!isFinite(duration) || duration === 0) return
+        const position = /** @type {number} */ (howl.seek())
+        const pct = (position / duration) * 100
+        progressBar.value = String(pct)
+        currentTimeEl.textContent = formatTime(position)
     }
 
     // Poll playback position to keep the progress bar and time display in sync.
