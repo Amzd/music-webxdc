@@ -31,4 +31,13 @@ export default defineConfig({
         mockWebxdc(),
         svgToPng('src/icon.svg', 'icon.png'),
     ],
+    build: {
+        rollupOptions: {
+            // audio@2.2.0/dist/audio.js has a dynamic import("audio-buffer") as
+            // a Node.js fallback. In the browser AudioBuffer is a global so the
+            // import never executes, but Rollup can't resolve it at build time.
+            // Externalising it lets the try/catch in the library handle it safely.
+            external: ['audio-buffer'],
+        },
+    },
 })
