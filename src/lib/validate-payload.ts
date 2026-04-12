@@ -16,7 +16,7 @@ export type Chunk = {
     blob: Blob
 }
 
-export type NowPlaying = {
+export type LastAction = {
     fileId: string
     isPlaying: boolean
     /** Audio position (seconds) at the moment the state was broadcast. */
@@ -27,7 +27,7 @@ export type NowPlaying = {
 
 export type AppState = {
     files: Array<FileMeta>
-    nowPlaying: NowPlaying | null
+    lastAction: LastAction | null
     playlistName?: string
     /** Display name of the local user, broadcast so peers can show it. */
     selfName?: string

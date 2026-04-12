@@ -22,8 +22,8 @@ async function init() {
     const emptyMsg = /** @type {HTMLElement} */ (
         document.getElementById('empty-msg')
     )
-    const nowPlaying = /** @type {HTMLElement} */ (
-        document.getElementById('now-playing')
+    const lastAction = /** @type {HTMLElement} */ (
+        document.getElementById('last-action')
     )
     const playBtn = /** @type {HTMLButtonElement} */ (
         document.getElementById('play-btn')
@@ -253,12 +253,12 @@ async function init() {
      *   peers
      */
     function broadcastPlayback(actionTimeOverride) {
-        const state = realtime.getState() ?? { files: [], nowPlaying: null }
+        const state = realtime.getState() ?? { files: [], lastAction: null }
         const fileId = currendId
         realtime.setState({
             ...state,
             selfName: window.webxdc.selfName,
-            nowPlaying: fileId
+            lastAction: fileId
                 ? {
                       fileId,
                       isPlaying: isPlaying,
@@ -289,7 +289,7 @@ async function init() {
      * If sync is enabled and a peer is actively playing a fully-downloaded
      * track while we are idle, start playing at the peer's current position.
      * Only follows the peer with the newest actionTime, and only when that
-     * actionTime is newer than our own nowPlaying.actionTime.
+     * actionTime is newer than our own lastAction.actionTime.
      *
      * @param {import('@webxdc/realtime').Peer<
      *     import('./lib/validate-payload').AppState
@@ -298,13 +298,13 @@ async function init() {
     async function trySyncToPeer(peers) {
         const state = realtime.getState()
         const files = state?.files ?? []
-        const myActionTime = state?.nowPlaying?.actionTime ?? 0
+        const myActionTime = state?.lastAction?.actionTime ?? 0
 
         // Find the peer with the newest actionTime that is still playing.
-        /** @type {import('./lib/validate-payload').NowPlaying | null} */
+        /** @type {import('./lib/validate-payload').LastAction | null} */
         let bestNp = null
         for (const peer of peers) {
-            const np = peer.state?.nowPlaying
+            const np = peer.state?.lastAction
             if (!np) continue
             if (np.actionTime <= myActionTime) continue
             if (trackIds.indexOf(np.fileId) === -1) continue
@@ -586,7 +586,7 @@ async function init() {
                 }
                 isPlaying = false
                 currendId = null
-                nowPlaying.textContent = 'Nothing playing'
+                lastAction.textContent = 'Nothing playing'
                 playBtn.disabled = trackIds.length === 0
                 updatePlayButton()
                 if ('mediaSession' in navigator) {
@@ -628,7 +628,7 @@ async function init() {
 
         const currentState = realtime.getState() ?? {
             files: [],
-            nowPlaying: null,
+            lastAction: null,
         }
         const updatedFiles = currentState.files.map((f) =>
             f.id === fileId
@@ -638,7 +638,7 @@ async function init() {
         realtime.setState({
             ...currentState,
             files: updatedFiles,
-            nowPlaying: wasCurrentTrack ? null : currentState.nowPlaying,
+            lastAction: wasCurrentTrack ? null : currentState.lastAction,
         })
     }
 
@@ -698,7 +698,7 @@ async function init() {
         }
         audio.play()
         isPlaying = true
-        nowPlaying.textContent = file?.name ?? id
+        lastAction.textContent = file?.name ?? id
         playBtn.disabled = false
         nextBtn.disabled = false
         prevBtn.disabled = false
@@ -846,7 +846,7 @@ async function init() {
         if (hasNotifiedAboutJam) return
         const anyPeerPlaying = realtime
             .getPeers()
-            .some((p) => p.state?.nowPlaying != null)
+            .some((p) => p.state?.lastAction != null)
         if (!anyPeerPlaying) {
             hasNotifiedAboutJam = true
             const state = realtime.getState()
@@ -906,9 +906,9 @@ async function init() {
         const files = realtime.getState()?.files ?? []
 
         /**
-         * Returns the track description for a nowPlaying entry, or null.
+         * Returns the track description for a lastAction entry, or null.
          *
-         * @param {import('./lib/validate-payload').NowPlaying
+         * @param {import('./lib/validate-payload').LastAction
          *     | null
          *     | undefined} np
          *
@@ -961,7 +961,7 @@ async function init() {
         peersList.innerHTML = ''
 
         // Local user row
-        const myNp = realtime.getState()?.nowPlaying ?? null
+        const myNp = realtime.getState()?.lastAction ?? null
         peersList.appendChild(
             makePeerRow(window.webxdc.selfName + ' (you)', trackInfo(myNp))
         )
@@ -971,7 +971,7 @@ async function init() {
         for (const peer of peers) {
             const peerName = peer.state?.selfName ?? 'Unknown'
             peersList.appendChild(
-                makePeerRow(peerName, trackInfo(peer.state?.nowPlaying))
+                makePeerRow(peerName, trackInfo(peer.state?.lastAction))
             )
         }
     }
@@ -1051,7 +1051,7 @@ async function init() {
         const newName = await showRenamePrompt()
         if (!newName || newName === playlistName || newName.length > 100) return
         applyPlaylistName(newName)
-        const state = realtime.getState() ?? { files: [], nowPlaying: null }
+        const state = realtime.getState() ?? { files: [], lastAction: null }
         realtime.setState({ ...state, playlistName: newName })
         window.webxdc.sendUpdate(
             {
@@ -1120,7 +1120,7 @@ async function init() {
         const lastModified = Date.now()
         const currentState = realtime.getState() ?? {
             files: [],
-            nowPlaying: null,
+            lastAction: null,
         }
         const existing = currentState.files.find(
             (f) => f.name === file.name && f.size > 0
@@ -1190,7 +1190,7 @@ async function init() {
         if (flushTimer !== null) clearTimeout(flushTimer)
         flushTimer = setTimeout(() => {
             flushTimer = null
-            const state = realtime.getState() ?? { files: [], nowPlaying: null }
+            const state = realtime.getState() ?? { files: [], lastAction: null }
             const files = state.files ?? []
             realtime.setState({ ...state, files })
             refreshPlaylist(files)
@@ -1373,7 +1373,7 @@ async function init() {
         }
 
         if (changed) {
-            const state = realtime.getState() ?? { files: [], nowPlaying: null }
+            const state = realtime.getState() ?? { files: [], lastAction: null }
             realtime.setState({ ...state, files })
             refreshPlaylist(files)
         }
@@ -1460,7 +1460,7 @@ async function init() {
     allFiles.sort((a, b) => a.lastModified - b.lastModified)
     realtime.setState({
         files: allFiles,
-        nowPlaying: null,
+        lastAction: null,
         selfName: window.webxdc.selfName,
     })
     realtime.connect()
