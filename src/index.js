@@ -1,5 +1,4 @@
 import { RealTime } from '@webxdc/realtime'
-import audio from 'audio'
 import { parseBlob } from 'music-metadata'
 
 import { CHUNK_SIZE, db, getDownloadProgress } from './lib/storage'
@@ -81,8 +80,7 @@ async function init() {
     /** @type {string | null} */
     let currentObjectUrl = null
 
-    /** @type {import('audio').AudioInstance | null} */
-    let audioInstance = null
+    const audio = new Audio()
 
     /** Map from file ID to its playlist button element. */
     /** @type {Map<string, HTMLButtonElement>} */
@@ -261,7 +259,7 @@ async function init() {
                 ? {
                       fileId,
                       isPlaying: isPlaying,
-                      currentTime: audioInstance?.currentTime ?? 0,
+                      currentTime: audio.currentTime,
                       actionTime: Date.now(),
                       alert,
                   }
@@ -359,27 +357,21 @@ async function init() {
 
         let index = trackIds.indexOf(bestAction.fileId)
         await playTrack(index)
-        if (!audioInstance) return
         const elapsed = (Date.now() - bestAction.actionTime) / 1000
         let seekTo = bestAction.currentTime + elapsed
-        while (seekTo >= audioInstance.duration) {
-            seekTo -= audioInstance.duration
+        while (seekTo >= audio.duration) {
+            seekTo -= audio.duration
             index += 1
             await playTrack(index)
-            if (!audioInstance) return
         }
-        if (
-            isFinite(audioInstance.duration) &&
-            seekTo < audioInstance.duration
-        ) {
-            audioInstance.seek(seekTo)
-            // Wait for the seek to be processed by the play loop (up to 2s).
-            const deadline = Date.now() + 2000
-            while (audioInstance.seeking && Date.now() < deadline) {
+        if (isFinite(audio.duration) && seekTo < audio.duration) {
+            audio.currentTime = seekTo
+            while (audio.currentTime < seekTo) {
+                audio.currentTime = seekTo
                 await new Promise((r) => setTimeout(r, 10))
             }
         }
-        if (!bestAction.isPlaying) audioInstance?.pause()
+        if (!bestAction.isPlaying) audio.pause()
 
         state.lastAction = bestAction
         realtime.setState(state)
@@ -629,11 +621,7 @@ async function init() {
             trackIds.splice(index, 1)
 
             if (currentId === fileId) {
-                if (audioInstance) {
-                    audioInstance.stop()
-                    audioInstance.dispose()
-                    audioInstance = null
-                }
+                audio.pause()
                 if (currentObjectUrl) {
                     URL.revokeObjectURL(currentObjectUrl)
                     currentObjectUrl = null
@@ -696,19 +684,12 @@ async function init() {
         })
     }
 
-    /** @param {string} src */
-    async function setAudioSrc(src) {
-        if (audioInstance) {
-            audioInstance.stop()
-            audioInstance.dispose()
-        }
-        audioInstance = /** @type {import('audio').AudioInstance} */ (
-            audio(src)
-        )
-        attachAudioListeners(audioInstance)
-        await audioInstance.ready
-        durationEl.textContent = formatTime(audioInstance.duration)
-        progressBar.value = '0'
+    function setAudioSrc(src) {
+        return new Promise((resolve) => {
+            audio.src = src
+            audio.load()
+            audio.addEventListener('canplaythrough', resolve, { once: true })
+        })
     }
 
     /** @param {number} index */
@@ -741,9 +722,15 @@ async function init() {
 
         const file = (realtime.getState()?.files ?? []).find((f) => f.id === id)
 
+        // Start playback immediately — iOS requires audio.play() to be called
+        // synchronously within the user-gesture handler. Any await before play()
+        // causes iOS to reject the call and the media session never activates.
+        //
+        // Set basic metadata synchronously before play() so that iOS can
+        // determine the control layout (prev/next track vs. skip-10s) at the
+        // moment playback starts. Without metadata iOS defaults to skip buttons.
         currentObjectUrl = URL.createObjectURL(blob)
         await setAudioSrc(currentObjectUrl)
-        if (!audioInstance) return
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: file?.name ?? id,
@@ -751,7 +738,7 @@ async function init() {
                 album: '',
             })
         }
-        audioInstance.play()
+        audio.play()
         isPlaying = true
         showNowPlayingSong(file?.name)
         playBtn.disabled = false
@@ -793,63 +780,63 @@ async function init() {
 
     // ── audio events ───────────────────────────────────────────────────────
 
-    /**
-     * Attaches all playback event handlers to an audio instance. Called each
-     * time a new audiojs instance is created for a track.
-     *
-     * @param {import('audio').AudioInstance} a
-     */
-    function attachAudioListeners(a) {
-        a.on('ended', () => {
-            if (isSeeking) return
-            if (trackIds.length > 0) {
-                playTrack(
-                    (trackIds.indexOf(currentId) + 1) % trackIds.length
-                ).then(() => broadcastPlayback())
-            }
-        })
+    audio.addEventListener('ended', () => {
+        if (isSeeking) return
+        if (trackIds.length > 0) {
+            playTrack((trackIds.indexOf(currentId) + 1) % trackIds.length).then(
+                () => broadcastPlayback()
+            )
+        }
+    })
 
-        a.on('timeupdate', (/** @type {number} */ time) => {
-            if (isSeeking) return
-            if (!isFinite(a.duration)) return
-            const pct = (time / a.duration) * 100
-            progressBar.value = String(pct)
-            currentTimeEl.textContent = formatTime(time)
-        })
+    audio.addEventListener('timeupdate', () => {
+        if (isSeeking) return
+        if (!isFinite(audio.duration)) return
+        const pct = (audio.currentTime / audio.duration) * 100
+        progressBar.value = String(pct)
+        currentTimeEl.textContent = formatTime(audio.currentTime)
+    })
 
-        a.on('play', () => {
-            isPlaying = true
-            updatePlayButton()
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = 'playing'
+    audio.addEventListener('loadedmetadata', () => {
+        durationEl.textContent = formatTime(audio.duration)
+        progressBar.value = '0'
+    })
 
-                // ── Media Session action handlers ──────────────────────────
-                // https://stackoverflow.com/a/78001443
-                // Only register previoustrack/nexttrack — never register
-                // seekbackward, seekforward, or seekto so that iOS shows
-                // next/prev track buttons instead of skip-10-seconds controls.
-                navigator.mediaSession.setActionHandler('play', () => {
-                    audioInstance?.resume()
-                })
-                navigator.mediaSession.setActionHandler('pause', () => {
-                    audioInstance?.pause()
-                })
-                navigator.mediaSession.setActionHandler(
-                    'previoustrack',
-                    playPrev
-                )
-                navigator.mediaSession.setActionHandler('nexttrack', playNext)
-            }
-        })
+    audio.addEventListener('play', () => {
+        isPlaying = true
+        updatePlayButton()
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = 'playing'
+        }
+    })
 
-        a.on('pause', () => {
-            isPlaying = false
-            updatePlayButton()
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = 'paused'
-            }
-        })
-    }
+    audio.addEventListener('pause', () => {
+        isPlaying = false
+        updatePlayButton()
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = 'paused'
+        }
+    })
+
+    // ── Media Session action handlers ──────────────────────────────────────
+
+    // https://stackoverflow.com/a/78001443
+    audio.addEventListener('playing', () => {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', () => {
+                audio.play()
+            })
+            navigator.mediaSession.setActionHandler('pause', () => {
+                audio.pause()
+            })
+
+            // Only register previoustrack/nexttrack — never register seekbackward,
+            // seekforward, or seekto so that iOS shows next/prev track buttons
+            // instead of the default skip-10-seconds controls.
+            navigator.mediaSession.setActionHandler('previoustrack', playPrev)
+            navigator.mediaSession.setActionHandler('nexttrack', playNext)
+        }
+    })
 
     // ── helpers ────────────────────────────────────────────────────────────
 
@@ -930,15 +917,10 @@ async function init() {
             return
         }
         if (isPlaying) {
-            audioInstance?.pause()
+            audio.pause()
             isPlaying = false
         } else {
-            // Use resume() if already paused, play() otherwise (e.g. after ended).
-            if (audioInstance?.paused) {
-                audioInstance.resume()
-            } else {
-                audioInstance?.play()
-            }
+            audio.play()
             isPlaying = true
         }
         updatePlayButton()
@@ -1065,9 +1047,7 @@ async function init() {
     var wasPlayingWhenStartedSeeking = false
     progressBar.addEventListener('pointerdown', () => {
         isSeeking = true
-        wasPlayingWhenStartedSeeking = audioInstance
-            ? !audioInstance.paused
-            : false
+        wasPlayingWhenStartedSeeking = !audio.paused
     })
 
     const onSeekEnd = () => {
@@ -1076,11 +1056,9 @@ async function init() {
         if (trackIds.length == 0) return
         const value = Number(progressBar.value)
         setTimeout(() => {
-            if (!audioInstance) return
             // make sure seek finished
-            const seekTime = (value / 100) * audioInstance.duration
-            audioInstance.seek(seekTime)
-            if (seekTime >= audioInstance.duration) {
+            audio.currentTime = (value / 100) * audio.duration
+            if (audio.currentTime >= audio.duration) {
                 playTrack(
                     (trackIds.indexOf(currentId) + 1) % trackIds.length
                 ).then(() =>
@@ -1095,20 +1073,17 @@ async function init() {
     progressBar.addEventListener('pointercancel', onSeekEnd)
 
     const seek = throttleWithTrailing(() => {
-        if (!audioInstance) return
-        audioInstance.seek(
-            (Number(progressBar.value) / 100) * audioInstance.duration
-        )
+        audio.currentTime = (Number(progressBar.value) / 100) * audio.duration
         if (
             wasPlayingWhenStartedSeeking &&
-            audioInstance.paused &&
+            audio.paused &&
             progressBar.value < 100
         )
-            audioInstance.resume()
+            audio.play()
     }, 300)
     progressBar.addEventListener('input', () => {
         if (!isSeeking) return
-        if (!audioInstance || !isFinite(audioInstance.duration)) return
+        if (!isFinite(audio.duration)) return
         seek()
     })
 

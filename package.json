@@ -58,9 +58,7 @@
         }
     },
     "dependencies": {
-        "@audio/decode-mp3": "^1.0.0",
         "@webxdc/realtime": "^0.2.2",
-        "audio": "^2.2.0",
         "dexie": "^4.4.2",
         "music-metadata": "^11.12.3"
     }
