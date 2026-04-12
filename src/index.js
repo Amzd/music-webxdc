@@ -84,12 +84,31 @@ async function init() {
     /** @type {Howl | null} */
     let howl = null
 
+    /**
+     * When set, applied as a seek position the next time `handleAudioPlay`
+     * fires. Used to defer seeks until after `audio.play()` has resolved so
+     * that html5-mode seeks are not silently dropped.
+     *
+     * @type {number | null}
+     */
+    let pendingSeek = null
+
+    /**
+     * When true, the next `handleAudioPlay` invocation will immediately pause
+     * the sound (used for sync-to-peer when the peer is paused).
+     *
+     * @type {boolean}
+     */
+    let pauseOnPlay = false
+
     /** Unloads and discards the current Howl instance if one exists. */
     function cleanupHowl() {
         if (howl) {
             howl.unload()
             howl = null
         }
+        pendingSeek = null
+        pauseOnPlay = false
     }
 
     /** Map from file ID to its playlist button element. */
@@ -376,10 +395,17 @@ async function init() {
             index += 1
             await playTrack(index)
         }
+        // Schedule the seek and optional pause to fire inside handleAudioPlay.
+        // In html5 mode howl.play() is async, so calling seek()/pause() directly
+        // here (before the underlying audio.play() Promise resolves) is silently
+        // dropped.  Storing them as pending flags lets handleAudioPlay apply them
+        // the moment the audio element actually starts.
         if (howl && isFinite(howl.duration()) && seekTo < howl.duration()) {
-            howl.seek(seekTo)
+            pendingSeek = seekTo
         }
-        if (!bestAction.isPlaying) howl?.pause()
+        if (!bestAction.isPlaying) {
+            pauseOnPlay = true
+        }
 
         state.lastAction = bestAction
         realtime.setState(state)
@@ -817,6 +843,23 @@ async function init() {
     }
 
     function handleAudioPlay() {
+        // Apply any deferred seek before anything else.  In html5 mode, calling
+        // howl.seek() right after howl.play() is dropped because audio.play() is
+        // async and the sound isn't "active" yet.  Deferring to onplay guarantees
+        // the audio element is running and currentTime can be set reliably.
+        if (pendingSeek !== null) {
+            howl?.seek(pendingSeek)
+            pendingSeek = null
+        }
+
+        // Likewise, if a sync-to-peer wanted us paused, do it now that play has
+        // actually started (calling pause() before play() resolves is a no-op).
+        if (pauseOnPlay) {
+            pauseOnPlay = false
+            howl?.pause()
+            return
+        }
+
         isPlaying = true
         updatePlayButton()
         if ('mediaSession' in navigator) {
