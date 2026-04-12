@@ -283,6 +283,35 @@ async function init() {
     }
 
     let lastSync = 0
+
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    let alertTimer = null
+
+    /**
+     * Temporarily shows an alert message in the now-playing area for 2 seconds,
+     * then restores the current track name. Cancels any in-progress alert.
+     *
+     * @param {string} text
+     */
+    function showAlert(text) {
+        if (alertTimer !== null) {
+            clearTimeout(alertTimer)
+            alertTimer = null
+        }
+        nowPlaying.textContent = text
+        alertTimer = setTimeout(() => {
+            alertTimer = null
+            if (currentId) {
+                const file = (realtime.getState()?.files ?? []).find(
+                    (f) => f.id === currentId
+                )
+                nowPlaying.textContent = file?.name ?? currentId
+            } else {
+                nowPlaying.textContent = 'Nothing playing'
+            }
+        }, 2000)
+    }
+
     /**
      * If sync is enabled and a peer is actively playing a fully-downloaded
      * track while we are idle, start playing at the peer's current position.
@@ -333,6 +362,7 @@ async function init() {
 
         state.lastAction = bestAction
         realtime.setState(state)
+        if (bestAction.alert) showAlert(bestAction.alert)
         return true
     }
 
