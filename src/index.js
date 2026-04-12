@@ -373,7 +373,9 @@ async function init() {
             seekTo < audioInstance.duration
         ) {
             audioInstance.seek(seekTo)
-            while (audioInstance.seeking) {
+            // Wait for the seek to be processed by the play loop (up to 2s).
+            const deadline = Date.now() + 2000
+            while (audioInstance.seeking && Date.now() < deadline) {
                 await new Promise((r) => setTimeout(r, 10))
             }
         }
@@ -931,7 +933,12 @@ async function init() {
             audioInstance?.pause()
             isPlaying = false
         } else {
-            audioInstance?.resume()
+            // Use resume() if already paused, play() otherwise (e.g. after ended).
+            if (audioInstance?.paused) {
+                audioInstance.resume()
+            } else {
+                audioInstance?.play()
+            }
             isPlaying = true
         }
         updatePlayButton()
