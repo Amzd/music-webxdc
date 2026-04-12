@@ -84,6 +84,14 @@ async function init() {
     /** @type {Howl | null} */
     let howl = null
 
+    /** Unloads and discards the current Howl instance if one exists. */
+    function cleanupHowl() {
+        if (howl) {
+            howl.unload()
+            howl = null
+        }
+    }
+
     /** Map from file ID to its playlist button element. */
     /** @type {Map<string, HTMLButtonElement>} */
     const trackElements = new Map()
@@ -621,10 +629,7 @@ async function init() {
             trackIds.splice(index, 1)
 
             if (currentId === fileId) {
-                if (howl) {
-                    howl.unload()
-                    howl = null
-                }
+                cleanupHowl()
                 if (currentObjectUrl) {
                     URL.revokeObjectURL(currentObjectUrl)
                     currentObjectUrl = null
@@ -690,10 +695,7 @@ async function init() {
     /** @returns {Promise<void>} */
     function setAudioSrc(src) {
         return new Promise((resolve) => {
-            if (howl) {
-                howl.unload()
-                howl = null
-            }
+            cleanupHowl()
             howl = new Howl({
                 src: [src],
                 format: ['mp3'],
@@ -705,7 +707,10 @@ async function init() {
                     progressBar.value = '0'
                     resolve()
                 },
-                onloaderror: () => resolve(),
+                onloaderror: (_id, err) => {
+                    console.warn('Failed to load audio:', err)
+                    resolve()
+                },
                 onend: handleAudioEnded,
                 onplay: handleAudioPlay,
                 onpause: handleAudioPause,
@@ -1069,8 +1074,9 @@ async function init() {
         setTimeout(() => {
             if (!howl) return
             const duration = howl.duration()
-            howl.seek((value / 100) * duration)
-            if (/** @type {number} */ (howl.seek()) >= duration) {
+            const seekPos = (value / 100) * duration
+            howl.seek(seekPos)
+            if (seekPos >= duration) {
                 playTrack(
                     (trackIds.indexOf(currentId) + 1) % trackIds.length
                 ).then(() =>
