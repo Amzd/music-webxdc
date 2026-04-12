@@ -1075,7 +1075,6 @@ async function init() {
             if (!howl) return
             const duration = howl.duration()
             const seekPos = (value / 100) * duration
-            howl.seek(seekPos)
             if (seekPos >= duration) {
                 playTrack(
                     (trackIds.indexOf(currentId) + 1) % trackIds.length
@@ -1085,25 +1084,25 @@ async function init() {
             } else {
                 broadcastPlayback(window.webxdc.selfName + ' seeked')
             }
-        }, 310)
+        }, 350)
     }
     progressBar.addEventListener('pointerup', onSeekEnd)
     progressBar.addEventListener('pointercancel', onSeekEnd)
 
-    const seek = throttleWithTrailing(() => {
+    const seek = throttleWithTrailing((progressBarValue) => {
         if (!howl) return
-        howl.seek((Number(progressBar.value) / 100) * howl.duration())
+        howl.seek((progressBarValue / 100) * howl.duration())
         if (
             wasPlayingWhenStartedSeeking &&
             !howl.playing() &&
-            progressBar.value < 100
+            progressBarValue < 100
         )
             howl.play()
     }, 300)
     progressBar.addEventListener('input', () => {
         if (!isSeeking) return
         if (!howl || !isFinite(howl.duration())) return
-        seek()
+        seek(Number(progressBar.value))
     })
 
     // ── upload ─────────────────────────────────────────────────────────────
