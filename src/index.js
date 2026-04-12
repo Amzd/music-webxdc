@@ -22,8 +22,8 @@ async function init() {
     const emptyMsg = /** @type {HTMLElement} */ (
         document.getElementById('empty-msg')
     )
-    const lastAction = /** @type {HTMLElement} */ (
-        document.getElementById('last-action')
+    const nowPlaying = /** @type {HTMLElement} */ (
+        document.getElementById('now-playing')
     )
     const playBtn = /** @type {HTMLButtonElement} */ (
         document.getElementById('play-btn')
@@ -586,7 +586,7 @@ async function init() {
                 }
                 isPlaying = false
                 currendId = null
-                lastAction.textContent = 'Nothing playing'
+                nowPlaying.textContent = 'Nothing playing'
                 playBtn.disabled = trackIds.length === 0
                 updatePlayButton()
                 if ('mediaSession' in navigator) {
@@ -698,7 +698,7 @@ async function init() {
         }
         audio.play()
         isPlaying = true
-        lastAction.textContent = file?.name ?? id
+        nowPlaying.textContent = file?.name ?? id
         playBtn.disabled = false
         nextBtn.disabled = false
         prevBtn.disabled = false
