@@ -628,11 +628,8 @@ async function init() {
                 }
                 isPlaying = false
                 currentId = null
-                if (alertTimer !== null) {
-                    clearTimeout(alertTimer)
-                    alertTimer = null
-                }
                 showNowPlayingSong(null)
+                playBtn.disabled = trackIds.length === 0
                 updatePlayButton()
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.playbackState = 'none'
@@ -743,7 +740,8 @@ async function init() {
         }
         audio.play()
         isPlaying = true
-        showNowPlayingSong(file?.name ?? id)
+        showNowPlayingSong(file?.name)
+        playBtn.disabled = false
         nextBtn.disabled = false
         prevBtn.disabled = false
         updatePlayButton()
