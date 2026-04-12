@@ -1062,10 +1062,10 @@ async function init() {
                 playTrack(
                     (trackIds.indexOf(currentId) + 1) % trackIds.length
                 ).then(() =>
-                    broadcastPlayback(window.webxdc.selfName + ' seeked')
+                    broadcastPlayback(window.webxdc.selfName + ' played')
                 )
             } else {
-                broadcastPlayback()
+                broadcastPlayback(window.webxdc.selfName + ' seeked')
             }
         }, 310)
     }
