@@ -288,8 +288,8 @@ async function init() {
     let alertTimer = null
 
     /**
-     * Updates the now-playing display to show a song name.
-     * Returns without updating if an alert is currently being shown.
+     * Updates the now-playing display to show a song name. Returns without
+     * updating if an alert is currently being shown.
      *
      * @param {string | null} song
      */
@@ -924,7 +924,9 @@ async function init() {
             isPlaying = true
         }
         updatePlayButton()
-        broadcastPlayback(window.webxdc.selfName + ' played')
+        broadcastPlayback(
+            window.webxdc.selfName + (isPlaying ? ' played' : ' paused')
+        )
     })
 
     /** @type {boolean} */
