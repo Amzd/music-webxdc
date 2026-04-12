@@ -17,6 +17,9 @@ importers:
       dexie:
         specifier: ^4.4.2
         version: 4.4.2
+      howler:
+        specifier: ^2.2.4
+        version: 2.2.4
       music-metadata:
         specifier: ^11.12.3
         version: 11.12.3
@@ -33,6 +36,9 @@ importers:
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
+      '@types/howler':
+        specifier: ^2.2.12
+        version: 2.2.12
       '@types/node':
         specifier: 22.16.5
         version: 22.16.5
@@ -1059,6 +1065,9 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
+  '@types/howler@2.2.12':
+    resolution: {integrity: sha512-hy769UICzOSdK0Kn1FBk4gN+lswcj1EKRkmiDtMkUGvFfYJzgaDXmVXkSShS2m89ERAatGIPnTUlp2HhfkVo5g==}
+
   '@types/http-proxy@1.17.16':
     resolution: {integrity: sha512-sdWoUajOB1cd0A8cRRQ1cfyWNbmFKLAqBB89Y8x5iYyG/mkJHc0YUH8pdWBy2omi9qtCpiIgGjuwO0dQST2l5w==}
 
@@ -1649,6 +1658,9 @@ packages:
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
+
+  howler@2.2.4:
+    resolution: {integrity: sha512-iARIBPgcQrwtEr+tALF+rapJ8qSc+Set2GJQl7xT1MQzWaVkFebdJhR3alVlSiUf5U7nAANKuj3aWpwerocD5w==}
 
   http-errors@2.0.0:
     resolution: {integrity: sha512-FtwrG/euBzaEjYeRqOgly7G0qviiXoJWnvEH2Z1plBdXgbyjv34pHTSb9zoeHMyDy33+DWy5Wt9Wo+TURtOYSQ==}
@@ -3500,6 +3512,8 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
+  '@types/howler@2.2.12': {}
+
   '@types/http-proxy@1.17.16':
     dependencies:
       '@types/node': 22.16.5
@@ -4205,6 +4219,8 @@ snapshots:
   hasown@2.0.2:
     dependencies:
       function-bind: 1.1.2
+
+  howler@2.2.4: {}
 
   http-errors@2.0.0:
     dependencies:

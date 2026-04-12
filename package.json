@@ -31,6 +31,7 @@
         "@eslint/js": "9.32.0",
         "@ianvs/prettier-plugin-sort-imports": "4.5.1",
         "@resvg/resvg-js": "^2.6.2",
+        "@types/howler": "^2.2.12",
         "@types/node": "22.16.5",
         "@webxdc/types": "2.1.2",
         "@webxdc/vite-plugins": "1.5.1",
@@ -60,6 +61,7 @@
     "dependencies": {
         "@webxdc/realtime": "^0.2.2",
         "dexie": "^4.4.2",
+        "howler": "^2.2.4",
         "music-metadata": "^11.12.3"
     }
 }
