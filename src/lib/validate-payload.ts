@@ -24,6 +24,12 @@ export type LastAction = {
     /** Wall-clock timestamp (ms) when this state was last updated. */
     actionTime: number
     alert?: string
+    /**
+     * When shuffle is active this holds the seed used to deterministically
+     * compute the shuffled track order. Undefined (or absent) means shuffle
+     * is off.
+     */
+    seed?: number
 }
 
 export type AppState = {
