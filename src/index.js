@@ -1134,7 +1134,7 @@ async function init() {
     fileInput.addEventListener('change', async () => {
         if (!fileInput.files) return
         for (const file of Array.from(fileInput.files)) {
-            if (!file.type.includes('audio') && !file.name.endsWith('.mp3'))
+            if (file.type !== 'audio/mpeg' && !file.name.endsWith('.mp3'))
                 continue
             await sendFile(file)
         }
@@ -1173,7 +1173,7 @@ async function init() {
         dropOverlay.classList.remove('active')
         const files = Array.from(e.dataTransfer?.files ?? [])
         for (const file of files) {
-            if (!file.type.includes('audio') && !file.name.endsWith('.mp3'))
+            if (file.type !== 'audio/mpeg' && !file.name.endsWith('.mp3'))
                 continue
             await sendFile(file)
         }
