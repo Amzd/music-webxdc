@@ -2,7 +2,7 @@
     "private": true,
     "name": "music-webxdc",
     "version": "1.0.0",
-    "description": "Radio Station app for listening to mp3s together",
+    "description": "Music app for listening to mp3s together",
     "license": "MIT",
     "keywords": [
         "webxdc"
