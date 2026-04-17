@@ -1,4 +1,4 @@
-# Music
+# Radio Station
 
 A [webxdc](https://webxdc.org/) music playlist application that allows you to share mp3s and listen to them synced with each other, all peer to peer.
 

@@ -174,7 +174,7 @@ async function init() {
     }
 
     const PLAYLIST_NAME_KEY = 'playlistName'
-    let playlistName = localStorage.getItem(PLAYLIST_NAME_KEY) ?? 'Music'
+    let playlistName = localStorage.getItem(PLAYLIST_NAME_KEY) ?? 'Radio Station'
 
     /** @param {string} name */
     function applyPlaylistName(name) {
@@ -905,7 +905,7 @@ async function init() {
             hasNotifiedAboutJam = true
             const state = realtime.getState()
             const onPlaylist =
-                playlistName === 'Music' ? '' : ` on "${playlistName}"`
+                playlistName === 'Radio Station' ? '' : ` on "${playlistName}"`
             window.webxdc.sendUpdate(
                 {
                     payload: null,
