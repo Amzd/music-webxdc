@@ -48,6 +48,9 @@ async function init() {
     const nextBtn = /** @type {HTMLButtonElement} */ (
         document.getElementById('next-btn')
     )
+    const shuffleBtn = /** @type {HTMLButtonElement} */ (
+        document.getElementById('shuffle-btn')
+    )
     const progressBar = /** @type {HTMLInputElement} */ (
         document.getElementById('progress-bar')
     )
@@ -81,6 +84,13 @@ async function init() {
     let isSeeking = false
     /** @type {string | null} */
     let currentObjectUrl = null
+    /**
+     * Active shuffle seed, or null when shuffle is off. Shared across peers
+     * via lastAction.seed so everyone computes the same track order.
+     *
+     * @type {number | null}
+     */
+    let shuffleSeed = null
 
     const audio = new Audio()
 
@@ -264,6 +274,7 @@ async function init() {
                       currentTime: audio.currentTime,
                       actionTime: Date.now(),
                       alert,
+                      seed: shuffleSeed ?? undefined,
                   }
                 : null,
         })
@@ -366,7 +377,12 @@ async function init() {
         return true
     }
     async function syncToAction(action) {
-        let index = trackIds.indexOf(action.fileId)
+        // Sync shuffle state from the incoming action so all peers stay in step.
+        shuffleSeed = action.seed ?? null
+        updateShuffleButton()
+
+        let trackId = action.fileId
+        let index = trackIds.indexOf(trackId)
         await playTrack(index)
         const elapsed = action.isPlaying
             ? (Date.now() - action.actionTime) / 1000
@@ -374,7 +390,16 @@ async function init() {
         let seekTo = action.currentTime + elapsed
         while (seekTo >= audio.duration) {
             seekTo -= audio.duration
-            index += 1
+            if (shuffleSeed !== null) {
+                const shuffled = seededShuffle(trackIds, shuffleSeed)
+                const ci = shuffled.indexOf(trackId)
+                const nextIdx = ci === -1 ? 0 : (ci + 1) % shuffled.length
+                trackId = shuffled[nextIdx] ?? trackId
+                index = trackIds.indexOf(trackId)
+            } else {
+                index += 1
+                trackId = trackIds[index] ?? trackId
+            }
             await playTrack(index)
         }
         await audio.safeSeek(seekTo)
@@ -398,6 +423,13 @@ async function init() {
     function updatePlayButton() {
         playBtn.innerHTML = isPlaying ? ICON_PAUSE : ICON_PLAY
         playBtn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play')
+    }
+
+    function updateShuffleButton() {
+        const active = shuffleSeed !== null
+        shuffleBtn.classList.toggle('active', active)
+        shuffleBtn.setAttribute('aria-label', active ? 'Shuffle on' : 'Shuffle off')
+        shuffleBtn.setAttribute('aria-pressed', String(active))
     }
 
     /** @param {number} index */
@@ -790,9 +822,7 @@ async function init() {
     audio.addEventListener('ended', () => {
         if (isSeeking) return
         if (trackIds.length > 0) {
-            playTrack((trackIds.indexOf(currentId) + 1) % trackIds.length).then(
-                () => broadcastPlayback()
-            )
+            playTrack(getNextTrackIndex()).then(() => broadcastPlayback())
         }
     })
 
@@ -868,11 +898,9 @@ async function init() {
 
     function playNext() {
         if (trackIds.length === 0) return
-        playTrack((trackIds.indexOf(currentId) + 1) % trackIds.length).then(
-            () => {
-                broadcastPlayback(window.webxdc.selfName + ' skipped')
-            }
-        )
+        playTrack(getNextTrackIndex()).then(() => {
+            broadcastPlayback(window.webxdc.selfName + ' skipped')
+        })
     }
 
     /**
@@ -1050,6 +1078,21 @@ async function init() {
 
     nextBtn.addEventListener('click', playNext)
 
+    shuffleBtn.addEventListener('click', () => {
+        if (shuffleSeed !== null) {
+            // Turn shuffle off
+            shuffleSeed = null
+        } else {
+            // Turn shuffle on — generate a random 32-bit seed
+            shuffleSeed = (Math.random() * 0xffffffff) >>> 0
+        }
+        updateShuffleButton()
+        broadcastPlayback(
+            window.webxdc.selfName +
+                (shuffleSeed !== null ? ' enabled shuffle' : ' disabled shuffle')
+        )
+    })
+
     var wasPlayingWhenStartedSeeking = false
     progressBar.addEventListener('pointerdown', () => {
         isSeeking = true
@@ -1073,9 +1116,7 @@ async function init() {
             }
 
             if (audio.currentTime >= audio.duration) {
-                playTrack(
-                    (trackIds.indexOf(currentId) + 1) % trackIds.length
-                ).then(() =>
+                playTrack(getNextTrackIndex()).then(() =>
                     broadcastPlayback(window.webxdc.selfName + ' played')
                 )
             } else {
@@ -1283,6 +1324,64 @@ async function init() {
             a[j] = /** @type {T} */ (tmp)
         }
         return a
+    }
+
+    /**
+     * Mulberry32 PRNG — fast, deterministic, seed-based.
+     *
+     * @param {number} seed
+     * @returns {() => number} Function returning uniform floats in [0, 1).
+     */
+    function mulberry32(seed) {
+        return function () {
+            seed |= 0
+            seed = (seed + 0x6d2b79f5) | 0
+            let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+        }
+    }
+
+    /**
+     * Returns a deterministically shuffled copy of arr using a numeric seed.
+     * Given the same seed and the same arr contents (in the same order) every
+     * caller will produce the identical shuffled sequence.
+     *
+     * @template T
+     * @param {T[]} arr
+     * @param {number} seed
+     *
+     * @returns {T[]}
+     */
+    function seededShuffle(arr, seed) {
+        const rng = mulberry32(seed)
+        const a = arr.slice()
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1))
+            const tmp = a[i]
+            a[i] = /** @type {T} */ (a[j])
+            a[j] = /** @type {T} */ (tmp)
+        }
+        return a
+    }
+
+    /**
+     * Returns the index in trackIds of the track that should play after
+     * currentId, respecting the active shuffle order when a seed is set.
+     *
+     * @returns {number}
+     */
+    function getNextTrackIndex() {
+        if (shuffleSeed !== null) {
+            const shuffled = seededShuffle(trackIds, shuffleSeed)
+            const ci = shuffled.indexOf(currentId)
+            // If currentId is not found (ci === -1), start from the first
+            // shuffled track; otherwise advance to the next one.
+            const nextIdx = ci === -1 ? 0 : (ci + 1) % shuffled.length
+            const nextId = shuffled[nextIdx] ?? ''
+            return trackIds.indexOf(nextId)
+        }
+        return (trackIds.indexOf(currentId) + 1) % trackIds.length
     }
 
     /**
